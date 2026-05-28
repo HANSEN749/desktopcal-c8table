@@ -1,0 +1,908 @@
+import {
+  entryUnitProfiles,
+  type EntryUnitId,
+  type EntryUnitProfile,
+  getEntryMarkerSymbol,
+  kindLabels,
+  shapeLabels,
+  type Entry,
+} from "@desktopcal/shared";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { AppLayout, type RepositoryMode } from "./components/AppLayout";
+import { EventDrawer } from "./components/EventDrawer";
+import { MonthCalendar } from "./components/MonthCalendar";
+import { QuickAdd } from "./components/QuickAdd";
+import { ReportPreview } from "./components/ReportPreview";
+import { UpcomingList } from "./components/UpcomingList";
+import { addDays, toDateKey } from "./domain/date";
+import { groupUpcomingEntries } from "./domain/upcoming";
+import type { AttachmentRepository, EntryDraft, EntryRepository } from "./repositories/EntryRepository";
+import { sortEntries } from "./repositories/EntryRepository";
+import { LocalAttachmentRepository } from "./repositories/LocalAttachmentRepository";
+import { DEFAULT_TEABLE_BASE_URL, DEFAULT_TEABLE_TABLE_ID } from "./repositories/TeableJsonEntryRepository";
+import {
+  createDefaultEntryRepository,
+  readRuntimeRepositoryConfig,
+  saveStoredTeableToken,
+} from "./repositories/runtimeConfig";
+
+interface DrawerState {
+  open: boolean;
+  date: string;
+  entry?: Entry;
+  draft?: EntryDraft;
+}
+
+export type AppView = "calendar" | "time" | "reports" | "settings";
+
+type UnitProfileMap = Record<EntryUnitId, EntryUnitProfile>;
+
+const UNIT_PROFILE_STORAGE_KEY = "desktopcal.unitProfiles.v1";
+const AI_PARSER_TOKEN_STORAGE_KEY = "desktopcal.aiParser.token";
+const AI_PARSER_BASE_URL_STORAGE_KEY = "desktopcal.aiParser.baseUrl";
+const AI_PARSER_MODEL_STORAGE_KEY = "desktopcal.aiParser.model";
+const DEFAULT_AI_PARSER_BASE_URL = "https://api.openai.com/v1";
+const DEFAULT_AI_PARSER_MODEL = "v4-flash";
+const AI_PARSER_TIMEOUT_MS = 900;
+
+interface AiParserConfig {
+  token?: string;
+  baseUrl: string;
+  model: string;
+}
+
+export interface AppProps {
+  entryRepository?: EntryRepository;
+  attachmentRepository?: AttachmentRepository;
+  storage?: Storage;
+}
+
+export function App({ entryRepository, attachmentRepository, storage }: AppProps = {}) {
+  const today = useMemo(() => toDateKey(new Date()), []);
+  const [tokenRevision, setTokenRevision] = useState(0);
+  const runtimeConfig = useMemo(
+    () => readRuntimeRepositoryConfig(storage),
+    [storage, tokenRevision],
+  );
+  const attachments = useMemo(
+    () => attachmentRepository ?? new LocalAttachmentRepository(),
+    [attachmentRepository],
+  );
+  const [unitProfiles, setUnitProfiles] = useState<UnitProfileMap>(() => readStoredUnitProfiles(storage));
+  const [aiParserRevision, setAiParserRevision] = useState(0);
+  const aiParserConfig = useMemo(
+    () => readStoredAiParserConfig(storage),
+    [storage, aiParserRevision],
+  );
+  const repository = useMemo(
+    () =>
+      entryRepository ??
+      createDefaultEntryRepository(runtimeConfig, {
+        readLocalAttachmentBlob: (attachment) =>
+          attachment.localBlobKey ? attachments.get(attachment.localBlobKey) : Promise.resolve(undefined),
+      }),
+    [attachments, entryRepository, runtimeConfig],
+  );
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [range, setRange] = useState<3 | 7 | 14>(7);
+  const [currentMonth, setCurrentMonth] = useState(() => new Date());
+  const [drawer, setDrawer] = useState<DrawerState>({ open: false, date: today });
+  const [activeView, setActiveView] = useState<AppView>("calendar");
+  const [statusText, setStatusText] = useState("正在读取 c8table");
+  const [saveError, setSaveError] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+
+  const linkedToTable = Boolean(runtimeConfig.token || entryRepository);
+  const mode: RepositoryMode = linkedToTable ? "teable" : "disconnected";
+  const groups = useMemo(() => groupUpcomingEntries(entries, today, range), [entries, range, today]);
+
+  const refreshEntries = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setStatusText(linkedToTable ? "正在读取 c8table" : "请保存 c8table API token");
+      }
+      const items = await repository.list();
+      setEntries(sortEntries(items));
+      setStatusText(
+        linkedToTable
+          ? items.length > 0
+            ? `c8table 已同步 ${items.length} 条事件`
+            : "c8table 暂无事件"
+          : "请保存 c8table API token",
+      );
+    },
+    [linkedToTable, repository],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    const load = async (silent = false) => {
+      if (!silent) {
+        setStatusText(linkedToTable ? "正在读取 c8table" : "请保存 c8table API token");
+      }
+      repository
+        .list()
+      .then((items) => {
+        if (!alive) {
+          return;
+        }
+        setEntries(sortEntries(items));
+        setStatusText(
+          linkedToTable
+            ? items.length > 0
+              ? `c8table 已同步 ${items.length} 条事件`
+              : "c8table 暂无事件"
+            : "请保存 c8table API token",
+        );
+      })
+      .catch((error) => {
+        if (!alive) {
+          return;
+        }
+        setStatusText(error instanceof Error ? error.message : "读取事件失败");
+      });
+    };
+    void load(false);
+    const interval = linkedToTable ? window.setInterval(() => void load(true), 15_000) : undefined;
+    return () => {
+      alive = false;
+      if (interval) {
+        window.clearInterval(interval);
+      }
+    };
+  }, [linkedToTable, repository]);
+
+  async function prepareQuickEntry(text: string) {
+    const localDraft = parseQuickEntry(text, today, unitProfiles);
+    const draft = await parseQuickEntryWithAi(text, today, unitProfiles, localDraft, aiParserConfig);
+    setSaveError(undefined);
+    setDrawer({ open: true, date: draft.date, draft });
+  }
+
+  async function saveDrawerEntry(draft: EntryDraft) {
+    setBusy(true);
+    setSaveError(undefined);
+    try {
+      if (drawer.entry) {
+        const saved = await repository.update({
+          ...drawer.entry,
+          ...draft,
+          attachments: draft.attachments ?? [],
+        });
+        setEntries((current) =>
+          sortEntries(current.map((entry) => (entry.id === saved.id ? saved : entry))),
+        );
+      } else {
+        const saved = await repository.create(draft);
+        setEntries((current) => sortEntries([saved, ...current]));
+      }
+      setDrawer({ open: false, date: draft.date });
+      setStatusText("事件已写入 c8table");
+      await refreshEntries(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "保存失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteDrawerEntry(entry: Entry) {
+    setBusy(true);
+    setSaveError(undefined);
+    try {
+      await repository.delete(entry.id);
+      await Promise.all(
+        entry.attachments.map((attachment) =>
+          attachment.localBlobKey ? attachments.remove(attachment.localBlobKey) : Promise.resolve(),
+        ),
+      );
+      setEntries((current) => current.filter((item) => item.id !== entry.id));
+      setDrawer({ open: false, date: entry.date });
+      setStatusText("事件已从 c8table 删除");
+      await refreshEntries(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function saveToken(token: string) {
+    saveStoredTeableToken(token, storage);
+    setTokenRevision((current) => current + 1);
+  }
+
+  function clearToken() {
+    saveStoredTeableToken("", storage);
+    setTokenRevision((current) => current + 1);
+  }
+
+  function updateUnitProfileLabel(id: EntryUnitId, label: string) {
+    setUnitProfiles((current) => {
+      const next = {
+        ...current,
+        [id]: {
+          ...current[id],
+          label,
+        },
+      };
+      saveStoredUnitProfiles(next, storage);
+      return next;
+    });
+  }
+
+  function resetUnitProfiles() {
+    saveStoredUnitProfiles(entryUnitProfiles, storage);
+    setUnitProfiles(entryUnitProfiles);
+  }
+
+  function saveAiParserConfig(config: AiParserConfig) {
+    saveStoredAiParserConfig(config, storage);
+    setAiParserRevision((current) => current + 1);
+  }
+
+  function clearAiParserToken() {
+    saveStoredAiParserConfig({ ...aiParserConfig, token: undefined }, storage);
+    setAiParserRevision((current) => current + 1);
+  }
+
+  return (
+    <AppLayout
+      activeView={activeView}
+      entries={entries}
+      onViewChange={setActiveView}
+      quickAdd={<QuickAdd disabled={busy || !linkedToTable} onAdd={prepareQuickEntry} />}
+      drawer={
+        <EventDrawer
+          open={drawer.open}
+          date={drawer.date}
+          entry={drawer.entry}
+          draft={drawer.draft}
+          unitProfiles={unitProfiles}
+          saving={busy}
+          error={saveError}
+          attachmentRepository={attachments}
+          onClose={() => setDrawer({ open: false, date: drawer.date })}
+          onSave={saveDrawerEntry}
+          onDelete={deleteDrawerEntry}
+        />
+      }
+    >
+      {activeView === "calendar" ? (
+        <div className="dashboard">
+          <MonthCalendar
+            entries={entries}
+            today={today}
+            currentMonth={currentMonth}
+            unitProfiles={unitProfiles}
+            onMonthChange={setCurrentMonth}
+            onCreateAtDate={(date) => setDrawer({ open: true, date })}
+            onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+          />
+
+          <section className="rightRail">
+            <UpcomingList
+              groups={groups}
+              today={today}
+              range={range}
+              unitProfiles={unitProfiles}
+              onRangeChange={setRange}
+              onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+            />
+            <ReportPreview entries={entries} today={today} />
+          </section>
+        </div>
+      ) : null}
+
+      {activeView === "time" ? (
+        <TimeRecordView entries={entries} onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })} />
+      ) : null}
+
+      {activeView === "reports" ? <ReportPreview entries={entries} today={today} /> : null}
+
+      {activeView === "settings" ? (
+        <SettingsView
+          mode={mode}
+          today={today}
+          unitProfiles={unitProfiles}
+          aiParserConfig={aiParserConfig}
+          statusText={saveError ?? statusText}
+          onSaveToken={saveToken}
+          onClearToken={clearToken}
+          onSaveAiParserConfig={saveAiParserConfig}
+          onClearAiParserToken={clearAiParserToken}
+          onUnitProfileLabelChange={updateUnitProfileLabel}
+          onResetUnitProfiles={resetUnitProfiles}
+        />
+      ) : null}
+    </AppLayout>
+  );
+}
+
+interface TimeRecordViewProps {
+  entries: Entry[];
+  onEditEntry(entry: Entry): void;
+}
+
+function TimeRecordView({ entries, onEditEntry }: TimeRecordViewProps) {
+  return (
+    <section className="panel fullPanel">
+      <div className="paneHeader">
+        <div>
+          <p className="eyebrow">时间记录</p>
+          <h3>全部事件</h3>
+        </div>
+      </div>
+      <div className="recordTable">
+        {entries.map((entry) => (
+          <button className="recordTableRow" key={entry.id} type="button" onClick={() => onEditEntry(entry)}>
+            <span>{entry.date}</span>
+            <span>{entry.time ?? "--:--"}</span>
+            <strong>{entry.title}</strong>
+            <span>{"★".repeat(entry.importance)}</span>
+          </button>
+        ))}
+        {entries.length === 0 ? <p className="emptyState">c8table 暂无事件</p> : null}
+      </div>
+    </section>
+  );
+}
+
+interface SettingsViewProps {
+  mode: RepositoryMode;
+  today: string;
+  unitProfiles: UnitProfileMap;
+  aiParserConfig: AiParserConfig;
+  statusText: string;
+  onSaveToken(token: string): void;
+  onClearToken(): void;
+  onSaveAiParserConfig(config: AiParserConfig): void;
+  onClearAiParserToken(): void;
+  onUnitProfileLabelChange(id: EntryUnitId, label: string): void;
+  onResetUnitProfiles(): void;
+}
+
+function SettingsView({
+  mode,
+  today,
+  unitProfiles,
+  aiParserConfig,
+  statusText,
+  onSaveToken,
+  onClearToken,
+  onSaveAiParserConfig,
+  onClearAiParserToken,
+  onUnitProfileLabelChange,
+  onResetUnitProfiles,
+}: SettingsViewProps) {
+  const [token, setToken] = useState("");
+  const [aiToken, setAiToken] = useState("");
+  const [aiBaseUrl, setAiBaseUrl] = useState(aiParserConfig.baseUrl);
+  const [aiModel, setAiModel] = useState(aiParserConfig.model);
+  const units = Object.values(unitProfiles);
+
+  function submitToken(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveToken(token);
+    setToken("");
+  }
+
+  function submitAiParser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveAiParserConfig({
+      token: aiToken.trim() || aiParserConfig.token,
+      baseUrl: aiBaseUrl.trim() || DEFAULT_AI_PARSER_BASE_URL,
+      model: aiModel.trim() || DEFAULT_AI_PARSER_MODEL,
+    });
+    setAiToken("");
+  }
+
+  return (
+    <section className="panel fullPanel">
+      <div className="paneHeader">
+        <div>
+          <p className="eyebrow">设置</p>
+          <h3>同步、字段与显示规则</h3>
+        </div>
+      </div>
+      <div className="settingsGrid">
+        <div>
+          <strong>后端</strong>
+          <span>{mode === "teable" ? "c8table 已连接" : "请保存 API token"}</span>
+        </div>
+        <div>
+          <strong>自动刷新</strong>
+          <span>每 15 秒读取 c8table</span>
+        </div>
+        <div>
+          <strong>状态</strong>
+          <span>{statusText}</span>
+        </div>
+      </div>
+      <div className="settingsSections">
+        <section className="settingsCard" aria-label="c8table connection">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">c8table</p>
+              <h4>{mode === "teable" ? "已连接" : "未连接"}</h4>
+            </div>
+            <span>{today}</span>
+          </div>
+          <dl className="settingsDefinition">
+            <div>
+              <dt>Base</dt>
+              <dd>{DEFAULT_TEABLE_BASE_URL}</dd>
+            </div>
+            <div>
+              <dt>Table</dt>
+              <dd>{DEFAULT_TEABLE_TABLE_ID}</dd>
+            </div>
+            <div>
+              <dt>字段模式</dt>
+              <dd>fieldKeyType=name，自动创建结构化字段</dd>
+            </div>
+          </dl>
+          <form className="settingsTokenForm" onSubmit={submitToken}>
+            <input
+              value={token}
+              onChange={(event) => setToken(event.currentTarget.value)}
+              type="password"
+              placeholder="API token"
+              aria-label="Teable API token"
+            />
+            <button type="submit">保存</button>
+            <button type="button" onClick={onClearToken}>
+              清除令牌
+            </button>
+          </form>
+          <p className="settingsStatus">{statusText}</p>
+        </section>
+
+        <section className="settingsCard" aria-label="AI quick parser">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">AI 解析</p>
+              <h4>{aiParserConfig.token ? "已启用" : "未启用"}</h4>
+            </div>
+          </div>
+          <form className="aiParserForm" onSubmit={submitAiParser}>
+            <label>
+              <span>Base URL</span>
+              <input
+                value={aiBaseUrl}
+                onChange={(event) => setAiBaseUrl(event.currentTarget.value)}
+                aria-label="AI parser base URL"
+              />
+            </label>
+            <label>
+              <span>模型</span>
+              <input
+                value={aiModel}
+                onChange={(event) => setAiModel(event.currentTarget.value)}
+                aria-label="AI parser model"
+              />
+            </label>
+            <label className="aiTokenField">
+              <span>API key</span>
+              <input
+                value={aiToken}
+                onChange={(event) => setAiToken(event.currentTarget.value)}
+                type="password"
+                placeholder={aiParserConfig.token ? "已保存，留空不变" : "API key"}
+                aria-label="AI parser API key"
+              />
+            </label>
+            <div className="aiParserActions">
+              <button type="submit">保存</button>
+              <button type="button" onClick={onClearAiParserToken}>
+                清除 key
+              </button>
+            </div>
+          </form>
+          <p className="settingsStatus">quick add 会先调用 AI 解析，失败时回退本地规则，并始终打开抽屉确认。</p>
+        </section>
+
+        <section className="settingsCard markerSettingsCard" aria-label="Marker rules">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">图标规则</p>
+              <h4>来源名称</h4>
+            </div>
+            <button className="smallTextButton" type="button" onClick={onResetUnitProfiles}>
+              恢复默认
+            </button>
+          </div>
+          <div className="markerRuleList">
+            <div className="markerRuleHeader" aria-hidden="true">
+              <span>图标</span>
+              <span>来源名称</span>
+              <span>形状</span>
+            </div>
+            {units.map((unit) => (
+              <div className="markerRule" key={unit.id}>
+                <div className="markerPreview" aria-hidden="true">
+                  <span className="marker level3">{getEntryMarkerSymbol(unit.shape, "event")}</span>
+                  <span className="marker level3">{getEntryMarkerSymbol(unit.shape, "duration")}</span>
+                </div>
+                <label className="markerNameField">
+                  <span>{entryUnitProfiles[unit.id].label}</span>
+                  <input
+                    value={unit.label}
+                    onChange={(event) =>
+                      onUnitProfileLabelChange(unit.id, event.currentTarget.value)
+                    }
+                    aria-label={`${entryUnitProfiles[unit.id].label}来源名称`}
+                  />
+                </label>
+                <span className="shapeName">{shapeLabels[unit.shape]}</span>
+              </div>
+            ))}
+          </div>
+          <div className="kindRule">
+            <span>
+              <strong>{kindLabels.event}</strong>
+              空心，表示某一时刻发生的事
+            </span>
+            <span>
+              <strong>{kindLabels.duration}</strong>
+              实心，表示持续推进或占用时间的事
+            </span>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function browserStorage(): Storage | undefined {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+function readStoredUnitProfiles(storage = browserStorage()): UnitProfileMap {
+  if (!storage) {
+    return entryUnitProfiles;
+  }
+  const raw = storage.getItem(UNIT_PROFILE_STORAGE_KEY);
+  if (!raw) {
+    return entryUnitProfiles;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<Record<EntryUnitId, Partial<EntryUnitProfile>>>;
+    return mergeUnitProfiles(parsed);
+  } catch {
+    return entryUnitProfiles;
+  }
+}
+
+function saveStoredUnitProfiles(profiles: UnitProfileMap, storage = browserStorage()): void {
+  storage?.setItem(UNIT_PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+}
+
+function readStoredAiParserConfig(storage = browserStorage()): AiParserConfig {
+  return {
+    token: storage?.getItem(AI_PARSER_TOKEN_STORAGE_KEY)?.trim() || undefined,
+    baseUrl: storage?.getItem(AI_PARSER_BASE_URL_STORAGE_KEY)?.trim() || DEFAULT_AI_PARSER_BASE_URL,
+    model: storage?.getItem(AI_PARSER_MODEL_STORAGE_KEY)?.trim() || DEFAULT_AI_PARSER_MODEL,
+  };
+}
+
+function saveStoredAiParserConfig(config: AiParserConfig, storage = browserStorage()): void {
+  if (!storage) {
+    return;
+  }
+  if (config.token?.trim()) {
+    storage.setItem(AI_PARSER_TOKEN_STORAGE_KEY, config.token.trim());
+  } else {
+    storage.removeItem(AI_PARSER_TOKEN_STORAGE_KEY);
+  }
+  storage.setItem(AI_PARSER_BASE_URL_STORAGE_KEY, config.baseUrl.trim() || DEFAULT_AI_PARSER_BASE_URL);
+  storage.setItem(AI_PARSER_MODEL_STORAGE_KEY, config.model.trim() || DEFAULT_AI_PARSER_MODEL);
+}
+
+function mergeUnitProfiles(
+  profiles: Partial<Record<EntryUnitId, Partial<EntryUnitProfile>>>,
+): UnitProfileMap {
+  const shapes = new Set(Object.keys(shapeLabels));
+  return Object.fromEntries(
+    Object.values(entryUnitProfiles).map((unit) => {
+      const stored = profiles[unit.id];
+      const label = typeof stored?.label === "string" && stored.label.trim() ? stored.label.trim() : unit.label;
+      const shape = stored?.shape && shapes.has(stored.shape) ? stored.shape : unit.shape;
+      return [unit.id, { ...unit, label, shape }];
+    }),
+  ) as UnitProfileMap;
+}
+
+function parseQuickEntry(text: string, today: string, unitProfiles: UnitProfileMap): EntryDraft {
+  let rest = text.trim();
+  const note = parseQuickNote(rest);
+  const date = parseQuickDate(rest, today);
+  rest = removeMatchedToken(rest, date.matched);
+  const time = parseQuickTime(rest);
+  rest = removeMatchedToken(rest, time.matched);
+  const kind = parseQuickKind(rest);
+  rest = removeMatchedToken(rest, kind.matched);
+  const importance = parseQuickImportance(rest);
+  rest = removeMatchedToken(rest, importance.matched);
+  const unit = parseQuickUnit(rest, unitProfiles);
+  rest = removeMatchedToken(rest, unit.matched);
+  const title = cleanupQuickTitle(rest, text);
+  return {
+    title,
+    date: date.value,
+    time: time.value,
+    unit: unit.value,
+    kind: kind.value,
+    importance: importance.value,
+    note,
+    attachments: [],
+  };
+}
+
+function parseQuickDate(text: string, today: string): { value: string; matched?: string } {
+  const todayDate = new Date(`${today}T00:00:00`);
+  const relativeRules: Array<[RegExp, number]> = [
+    [/(今天|今日)/, 0],
+    [/(明天|明日)/, 1],
+    [/(后天|后日)/, 2],
+  ];
+  for (const [pattern, offset] of relativeRules) {
+    const match = text.match(pattern);
+    if (match) {
+      return { value: toDateKey(addDays(todayDate, offset)), matched: match[0] };
+    }
+  }
+  const fullDate = text.match(/((20\d{2})[年./-](\d{1,2})[月./-](\d{1,2})(?:日|号)?(?:前|之前|以前|截止前)?)/);
+  if (fullDate) {
+    return {
+      value: `${fullDate[2]}-${fullDate[3].padStart(2, "0")}-${fullDate[4].padStart(2, "0")}`,
+      matched: fullDate[1],
+    };
+  }
+  const monthDay = text.match(/((\d{1,2})[./月-](\d{1,2})(?:日|号)?(?:前|之前|以前|截止前)?)/);
+  if (monthDay) {
+    return {
+      value: `${todayDate.getFullYear()}-${monthDay[2].padStart(2, "0")}-${monthDay[3].padStart(2, "0")}`,
+      matched: monthDay[1],
+    };
+  }
+  const dayOnly = text.match(/((\d{1,2})(?:日|号)(?:前|之前|以前|截止前)?)/);
+  if (dayOnly) {
+    return {
+      value: `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, "0")}-${dayOnly[2].padStart(2, "0")}`,
+      matched: dayOnly[1],
+    };
+  }
+  const weekday = text.match(/((下|本|这)?(?:周|星期|礼拜)([一二三四五六日天1-7]))/);
+  if (weekday) {
+    return { value: resolveWeekdayDate(todayDate, weekday[2], weekday[3]), matched: weekday[1] };
+  }
+  return { value: today };
+}
+
+function parseQuickTime(text: string): { value?: string; matched?: string } {
+  const match = text.match(/((?:上午|早上|早晨|下午|晚上|今晚|中午)?\s*([01]?\d|2[0-3])(?:[:：点]([0-5]\d)?)?(?:分)?)/);
+  if (!match || !/[点:：]/.test(match[0])) {
+    return {};
+  }
+  let hour = Number(match[2]);
+  const meridiem = match[1];
+  if (/(下午|晚上|今晚)/.test(meridiem) && hour < 12) {
+    hour += 12;
+  }
+  if (/中午/.test(meridiem) && hour < 11) {
+    hour += 12;
+  }
+  return { value: `${String(hour).padStart(2, "0")}:${match[3] ?? "00"}`, matched: match[1].trim() };
+}
+
+function parseQuickKind(text: string): { value: EntryDraft["kind"]; matched?: string } {
+  const duration = text.match(/(持续|长期|推进|跟进|任务|待办|截止|ddl|deadline|前完成|之前完成|完成|提交|更新|整改|归还|处理|落实)/i);
+  if (duration) {
+    return { value: "duration", matched: duration[0] };
+  }
+  const event = text.match(/(事件|会议|开会|发生|提醒)/);
+  return { value: "event", matched: event?.[0] };
+}
+
+function parseQuickImportance(text: string): { value: EntryDraft["importance"]; matched?: string } {
+  const level = text.match(/(?:L|l|重要性|星级)\s*([1-5])/);
+  if (level) {
+    return { value: Number(level[1]) as EntryDraft["importance"], matched: level[0] };
+  }
+  const stars = text.match(/([1-5])\s*(?:星|级)/);
+  if (stars) {
+    return { value: Number(stars[1]) as EntryDraft["importance"], matched: stars[0] };
+  }
+  const important = text.match(/(非常重要|很重要|紧急|高优先级|重要)/);
+  if (important) {
+    return { value: important[0] === "重要" ? 4 : 5, matched: important[0] };
+  }
+  const highSignal = text.match(/(领导|保密|巡视|整改|集团|党组|中央|截止|前完成|及时)/);
+  if (highSignal) {
+    return { value: 5, matched: highSignal[0] };
+  }
+  const low = text.match(/(不重要|低优先级)/);
+  if (low) {
+    return { value: 1, matched: low[0] };
+  }
+  return { value: 3 };
+}
+
+function parseQuickUnit(text: string, unitProfiles: UnitProfileMap): { value: EntryUnitId; matched?: string } {
+  for (const unit of Object.values(unitProfiles)) {
+    if (unit.label && text.includes(unit.label)) {
+      return { value: unit.id, matched: unit.label };
+    }
+  }
+  if (/(单位|公司|部门|领导|同事|集团|党组|中建|八局|巡视|整改)/.test(text)) {
+    return { value: "work" };
+  }
+  return { value: "work" };
+}
+
+function parseQuickNote(text: string): string | undefined {
+  const urls = text.match(/https?:\/\/\S+/g);
+  return urls?.join("\n");
+}
+
+function cleanupQuickTitle(text: string, originalText: string): string {
+  const taskTitle = extractTaskTitle(originalText);
+  if (taskTitle) {
+    return taskTitle;
+  }
+  const cleaned = text
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/【[^】]*】/g, " ")
+    .replace(/@所有人/g, " ")
+    .replace(/各位(?:领导)?同事/g, " ")
+    .replace(/请[于在]?/g, " ")
+    .replace(/前完成|之前完成|以前完成/g, " ")
+    .replace(/另外|及时/g, " ")
+    .replace(/[，,。；;：:]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || originalText.trim();
+}
+
+function extractTaskTitle(text: string): string | undefined {
+  const tasks: string[] = [];
+  const complete = text.match(/完成([^。；;，,\n]+?)(?:。|；|;|，|,|\n|$)/);
+  if (complete?.[1]?.trim()) {
+    tasks.push(complete[1].trim());
+  }
+  const returnFile = text.match(/归还([^。；;，,\n]+?)(?:。|；|;|，|,|\n|$)/);
+  if (returnFile?.[1]?.trim()) {
+    tasks.push(`归还${returnFile[1].trim()}`);
+  }
+  return tasks.length > 0 ? tasks.join("；") : undefined;
+}
+
+function resolveWeekdayDate(todayDate: Date, weekPrefix: string | undefined, weekdayToken: string): string {
+  const numericWeekday =
+    weekdayToken === "日" || weekdayToken === "天"
+      ? 0
+      : /[1-7]/.test(weekdayToken)
+        ? Number(weekdayToken) % 7
+        : "一二三四五六".indexOf(weekdayToken) + 1;
+  const current = todayDate.getDay();
+  let offset = numericWeekday - current;
+  if (weekPrefix === "下") {
+    offset += 7;
+  } else if (weekPrefix !== "本" && weekPrefix !== "这" && offset < 0) {
+    offset += 7;
+  }
+  return toDateKey(addDays(todayDate, offset));
+}
+
+function removeMatchedToken(text: string, token: string | undefined): string {
+  return token ? text.replace(token, " ").replace(/\s+/g, " ").trim() : text;
+}
+
+async function parseQuickEntryWithAi(
+  text: string,
+  today: string,
+  unitProfiles: UnitProfileMap,
+  fallback: EntryDraft,
+  config: AiParserConfig,
+): Promise<EntryDraft> {
+  if (!config.token) {
+    return fallback;
+  }
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const responsePromise = fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0,
+        max_tokens: 260,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              [
+                "你是 DesktopCal 的中文快速添加解析器。只返回 JSON，不要解释。",
+                "目标是把一句自然语言拆成日历字段，不要改写用户本意。",
+                "字段必须是 title,date,time,unit,kind,importance,note。",
+                "date 必须是 YYYY-MM-DD；time 必须是 HH:mm 或 null；unit 必须从给定 units.id 中选。",
+                "date 抽取规则：'5月30日前/之前/截止前/请于5月30日前完成' 的日期就是当年 05-30，不要退回 today。",
+                "time 抽取规则：只有明确几点/HH:mm/上午下午时才填；没有明确时间填 null。",
+                "unit 抽取规则：如果正文精确包含某个 units.label，选对应 id；含单位/公司/部门/领导/同事/集团/中建/八局/巡视/整改时优先 work。",
+                "kind 只能是 event 或 duration：event=某一时刻发生的会议/提醒；duration=持续推进/占用时间/任务/截止/完成/提交/更新/整改/归还。",
+                "importance 必须是 1-5：默认 3；重要/高优先级=4；紧急/非常重要/领导/保密/巡视/整改/集团/党组/中央/截止/及时=5。",
+                "title 只保留要办的事情，删除 @所有人、日期、时间、来源、重要性、持续/事件、链接等元信息。",
+                "note 可放链接或补充说明；正文里有 URL 时放入 note。",
+                "示例：today=2026-05-28，text='@所有人各位领导同事，请于5月30日前完成巡视整改台账月度进展情况更新。另外请及时归还保密文件。 https://docs.qq.com/x'，输出 {\"title\":\"巡视整改台账月度进展情况更新；归还保密文件\",\"date\":\"2026-05-30\",\"time\":null,\"unit\":\"work\",\"kind\":\"duration\",\"importance\":5,\"note\":\"https://docs.qq.com/x\"}",
+              ].join("\n"),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              today,
+              text,
+              fallback,
+              units: Object.values(unitProfiles).map((unit) => ({ id: unit.id, label: unit.label })),
+            }),
+          },
+        ],
+      }),
+    });
+    const timeoutPromise = new Promise<Response | undefined>((resolve) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        resolve(undefined);
+      }, AI_PARSER_TIMEOUT_MS);
+    });
+    const response = await Promise.race([responsePromise, timeoutPromise]);
+    if (!response) {
+      return fallback;
+    }
+    if (!response.ok) {
+      return fallback;
+    }
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      return fallback;
+    }
+    return normalizeAiDraft(JSON.parse(content), fallback, unitProfiles);
+  } catch {
+    return fallback;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function normalizeAiDraft(value: unknown, fallback: EntryDraft, unitProfiles: UnitProfileMap): EntryDraft {
+  const data = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const title = typeof data.title === "string" && data.title.trim() ? data.title.trim() : fallback.title;
+  const date = typeof data.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : fallback.date;
+  const time = typeof data.time === "string" && /^\d{2}:\d{2}$/.test(data.time) ? data.time : fallback.time;
+  const unit =
+    typeof data.unit === "string" && Object.prototype.hasOwnProperty.call(unitProfiles, data.unit)
+      ? (data.unit as EntryUnitId)
+      : fallback.unit;
+  const kind = data.kind === "duration" || data.kind === "event" ? data.kind : fallback.kind;
+  const importance =
+    typeof data.importance === "number" && Number.isInteger(data.importance) && data.importance >= 1 && data.importance <= 5
+      ? (data.importance as EntryDraft["importance"])
+      : fallback.importance;
+  const note = typeof data.note === "string" && data.note.trim() ? data.note.trim() : fallback.note;
+  return { ...fallback, title, date, time, unit, kind, importance, note };
+}

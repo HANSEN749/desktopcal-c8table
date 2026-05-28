@@ -1,0 +1,22 @@
+{
+  "name": "desktopcal-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/desktop",
+    "apps/web",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @desktopcal/desktop run tauri:dev",
+    "build": "npm --workspace @desktopcal/shared run build && npm --workspace @desktopcal/web run build && npm --workspace @desktopcal/desktop run tauri:build",
+    "test": "npm --workspace @desktopcal/web run test -- --run",
+    "typecheck": "npm --workspace @desktopcal/shared run typecheck && npm --workspace @desktopcal/web run typecheck",
+    "lint": "npm run typecheck",
+    "tauri": "npm --workspace @desktopcal/desktop run tauri"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

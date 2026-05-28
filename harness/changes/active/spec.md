@@ -1,0 +1,41 @@
+# Spec
+
+## Goal
+
+Turn DesktopCal into a real event system backed by Teable records while keeping attachment files in
+local IndexedDB until the target Teable table gains an attachment field.
+
+## Acceptance Criteria
+
+- Double-clicking a month-calendar date opens an event drawer prefilled with that date.
+- The drawer can create and edit title, date, time, unit/source, importance, note, and attachments.
+- Shape is derived from unit/source rules, not directly selected.
+- Empty/solid display is derived from event type: `事件` is hollow and `持续` is solid.
+- Quick add still creates a today event from a title only.
+- Month cells show event count, markers, and the first title; the upcoming list refreshes from the
+  same event state.
+- UI code depends on an `EntryRepository` interface, not on Teable or IndexedDB directly.
+- c8table is the source of truth for events; the frontend polls for table-side changes and blocks
+  event writes until a local token exists.
+- `TeableJsonEntryRepository` stores one event per Teable record using structured c8table fields and
+  `fieldKeyType=name`.
+- Missing c8table fields are created automatically for title, date, time, unit, type, importance,
+  note, attachments, attachment metadata, local id, created time, and updated time.
+- Existing JSON rows in `Single line text` / `单行文本` are migrated into structured fields and the
+  old text field is rewritten as a readable title mirror.
+- Legacy text records are parsed without crashing and represented as legacy title events.
+- `LocalAttachmentRepository` stores attachment blobs in IndexedDB and event records keep attachment
+  metadata with local blob keys.
+- API token handling is runtime/local only and no secret is committed to tracked files.
+
+## Non-Goals
+
+- No forced remote attachment migration until the table gains a usable attachment field.
+- No background sync engine, conflict resolution UI, tray menu, auto-start, or report export.
+
+## Assumptions
+
+- Teable Base URL is `https://c8table.com`.
+- Teable Table ID is `tbl2wWI7diI2vs5anMs`.
+- The current table may still have a legacy `单行文本` field, but it is not the primary event store.
+- If no token is configured at runtime, the app blocks c8table writes instead of pretending to sync.
