@@ -62,7 +62,7 @@ Current active change: `harness/changes/active/summary.md`
   debug APK.
 - Android `testDebugUnitTest`: passed with no current unit-test sources.
 - Android APK signature verification with `apksigner`: passed using APK Signature Scheme v2.
-- GitHub Actions `Build macOS arm64 DMG`: passed on run `26593082004`; artifact downloaded locally
+- GitHub Actions `Build macOS arm64 DMG`: passed on run `26593350848`; artifact downloaded locally
   to `dist/macos-arm64/DesktopCal_0.1.0_aarch64.dmg`.
 - Browser smoke check against `http://127.0.0.1:5173`: passed for date double-click, drawer
   visibility, unit-derived marker preview, time field, note field, attachment input, and translucent
