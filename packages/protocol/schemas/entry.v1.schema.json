@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desktopcal.local/schemas/entry.v1.schema.json",
+  "title": "DesktopCal Entry v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "localId",
+    "title",
+    "date",
+    "unit",
+    "kind",
+    "importance",
+    "attachments",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "schema": {
+      "const": "desktopcal.entry.v1"
+    },
+    "localId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^\\d{2}:\\d{2}$"
+    },
+    "unit": {
+      "enum": ["work", "research", "review", "personal", "other"]
+    },
+    "kind": {
+      "enum": ["event", "duration"]
+    },
+    "importance": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "note": {
+      "type": "string"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attachment"
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "captureSource": {
+      "enum": ["desktop", "android", "import", "unknown"]
+    },
+    "deviceId": {
+      "type": "string"
+    },
+    "syncState": {
+      "enum": ["synced", "pendingCreate", "pendingUpdate", "pendingDelete", "conflict"]
+    },
+    "reminderAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "location": {
+      "$ref": "#/$defs/location"
+    },
+    "voiceNote": {
+      "$ref": "#/$defs/localMedia"
+    }
+  },
+  "$defs": {
+    "attachment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "storage", "name", "mime", "size", "createdAt"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage": {
+          "enum": ["local", "teable"]
+        },
+        "localBlobKey": {
+          "type": "string"
+        },
+        "androidLocalUri": {
+          "type": "string"
+        },
+        "teableAttachmentId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isCover": {
+          "type": "boolean"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["latitude", "longitude"],
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "localMedia": {
+      "type": "object",
+      "required": ["id", "localUri", "mime", "createdAt"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "localUri": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

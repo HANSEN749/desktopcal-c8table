@@ -11,7 +11,8 @@ local IndexedDB until the target Teable table gains an attachment field.
 - The drawer can create and edit title, date, time, unit/source, importance, note, and attachments.
 - Shape is derived from unit/source rules, not directly selected.
 - Empty/solid display is derived from event type: `事件` is hollow and `持续` is solid.
-- Quick add still creates a today event from a title only.
+- Quick add parses natural-language input into proposed title, date, time, unit/source, type, and
+  importance, then opens the drawer for human confirmation before saving.
 - Month cells show event count, markers, and the first title; the upcoming list refreshes from the
   same event state.
 - The main navigation separates `常用视图` and `日历模式`, with `常用视图` as the default.
@@ -32,11 +33,17 @@ local IndexedDB until the target Teable table gains an attachment field.
 - `LocalAttachmentRepository` stores attachment blobs in IndexedDB and event records keep attachment
   metadata with local blob keys.
 - API token handling is runtime/local only and no secret is committed to tracked files.
+- Android companion planning stays within the existing ECL harness architecture: protocol and
+  product-boundary artifacts are added before executable Android build tooling.
+- Cross-device contracts are schema-first and use the same `desktopcal.entry.v1` event model for
+  desktop, c8table, and the future Android app.
 
 ## Non-Goals
 
 - No forced remote attachment migration until the table gains a usable attachment field.
 - No background sync engine, conflict resolution UI, tray menu, auto-start, or report export.
+- No real Android Gradle project or root Android command until the local Android SDK/JDK and a
+  minimal Compose build are verified.
 
 ## Assumptions
 
