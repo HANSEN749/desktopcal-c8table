@@ -12,4 +12,8 @@
 - [x] Add default common schedule view for 3 days before through 11 days after today.
 - [x] Keep month calendar as a separate dense calendar mode with more visible event text.
 - [x] Add Android companion design, sync protocol, and schema-first monorepo boundary docs.
+- [x] Create a real Android Gradle/Compose project under `apps/android`.
+- [x] Implement first Android c8table list and quick-create package.
+- [x] Build and locate the Android debug APK.
+- [x] Add macOS arm64 DMG packaging workflow.
 - [x] Run verification commands and update status.

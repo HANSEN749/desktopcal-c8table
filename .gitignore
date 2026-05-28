@@ -5,8 +5,12 @@ __pycache__/
 .mypy_cache/
 *.egg-info/
 node_modules/
+.gradle/
 dist/
 target/
 apps/web/dist/
 apps/desktop/src-tauri/target/
+apps/android/.gradle/
+apps/android/local.properties
+apps/android/**/build/
 *.log

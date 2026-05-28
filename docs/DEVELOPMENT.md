@@ -8,8 +8,8 @@
 - npm
 - Microsoft Edge WebView2 Runtime
 - Rust toolchain from rustup for Tauri dev/build
-- Android Studio, Android SDK, and a compatible JDK are only required after the Android companion
-  moves from protocol planning to an executable Gradle project.
+- Android SDK and JDK 17 are required for Android APK builds. Android Studio is optional unless you
+  want the IDE or emulator UI.
 
 ## 2 Install
 
@@ -32,10 +32,10 @@ and re-run doctor.
 | `uv run --no-editable desktopcal test` | Run Python tests and React/Vitest tests |
 | `uv run --no-editable desktopcal lint` | Run Python, TypeScript, and harness checks |
 | `uv run --no-editable desktopcal harness lint` | Validate ECL harness structure |
+| `powershell -ExecutionPolicy Bypass -File apps\android\build-debug.ps1` | Build the Android debug APK |
 
-Android companion work is currently docs and protocol only. `apps/android` reserves the boundary,
-but no Gradle task is wired into root `uv`, `npm`, or CI verification until the Android toolchain is
-checked explicitly.
+Android is intentionally not wired into root `npm run build` or `uv run desktopcal build`; desktop
+verification must stay fast and stable. Use the explicit Android command when building the APK.
 
 ## 4 Current Behavior
 
@@ -47,8 +47,12 @@ Without a token, event writes are blocked so c8table remains the single event ba
 The frontend polls c8table periodically; direct edits in the table flow back to the UI without a
 manual sync step.
 
-The main UI has two schedule surfaces: `常用视图` is the default rolling window from 3 days before
-today through 11 days after today, and `日历模式` keeps the month grid with denser event text.
+The main desktop UI has two schedule surfaces: `常用视图` is the default rolling window from 3 days
+before today through 11 days after today, and `日历模式` keeps the month grid with denser event text.
+
+The Android package under `apps/android` is a Kotlin + Compose companion. The first APK stores a
+c8table token locally, lists events from the shared table, ensures expected c8table fields exist,
+and creates quick events.
 
 Attachments are stored locally in IndexedDB. Event records keep attachment metadata and local blob
 keys; when the c8table attachment field exists, the repository can upload local attachment blobs.
@@ -68,6 +72,5 @@ Teable token options:
 - If WebView2 is missing, install the Evergreen WebView2 Runtime from Microsoft.
 - If c8table requests fail, confirm the local token is present and has permission to create fields
   and write records in table `tbl2wWI7diI2vs5anMs`.
-- If Android companion development begins, verify `java -version`, `ANDROID_HOME` or
-  `ANDROID_SDK_ROOT`, and a minimal Gradle/Compose build before adding Android commands to the root
-  command surface.
+- If `gradlew.bat` fails under this Chinese workspace path, use `apps\android\build-debug.ps1`; it
+  calls the Gradle wrapper through Java directly.

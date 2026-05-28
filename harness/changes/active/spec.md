@@ -33,17 +33,22 @@ local IndexedDB until the target Teable table gains an attachment field.
 - `LocalAttachmentRepository` stores attachment blobs in IndexedDB and event records keep attachment
   metadata with local blob keys.
 - API token handling is runtime/local only and no secret is committed to tracked files.
-- Android companion planning stays within the existing ECL harness architecture: protocol and
-  product-boundary artifacts are added before executable Android build tooling.
+- Android companion work stays within the existing ECL harness architecture: protocol artifacts,
+  product boundaries, Gradle project files, and build outputs are tracked through this change.
 - Cross-device contracts are schema-first and use the same `desktopcal.entry.v1` event model for
   desktop, c8table, and the future Android app.
+- The first Android package can be built locally as a debug APK and provides token storage, c8table
+  event listing, and quick event creation against the same table.
+- macOS Apple Silicon packaging has a reproducible GitHub Actions workflow that runs on macOS and
+  emits a DMG artifact.
 
 ## Non-Goals
 
 - No forced remote attachment migration until the table gains a usable attachment field.
 - No background sync engine, conflict resolution UI, tray menu, auto-start, or report export.
-- No real Android Gradle project or root Android command until the local Android SDK/JDK and a
-  minimal Compose build are verified.
+- No Android Play Store release signing, remote attachment upload, or background sync worker in the
+  first Android package.
+- No local Windows-built macOS DMG. macOS DMG packaging must run on macOS infrastructure.
 
 ## Assumptions
 

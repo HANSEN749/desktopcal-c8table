@@ -32,8 +32,8 @@ file attachment, reminders, and quick status updates.
 - Do not require real-time websocket sync in the first version.
 - Do not require c8table remote attachment upload until the table/backend supports a stable
   attachment field or separate object storage.
-- Do not bind Android builds into the root `npm` or `uv` build until the Android toolchain is
-  verified on this machine and CI.
+- Do not bind Android builds into the root `npm` or `uv` desktop build; Android stays behind an
+  explicit APK command.
 
 ## Screen Model
 
@@ -114,13 +114,13 @@ flowchart LR
 - Keep this repository as the monorepo.
 - Add protocol schemas under `packages/protocol`.
 - Add `apps/android/README.md` as the Android app boundary.
-- Do not add Gradle until Android SDK/JDK availability is verified.
+- Verify Android SDK/JDK availability before adding Gradle files.
 
 ### Phase 1: Android MVP
 
 - Create `apps/android` Kotlin Compose project.
-- Store c8table token locally with DataStore.
-- Pull entries from c8table into Room.
+- Store c8table token locally with app preferences.
+- Pull entries from c8table into the mobile list.
 - Render mobile `Now` list and detail view.
 - Create events through c8table structured fields.
 - Schedule local notifications.

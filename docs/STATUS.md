@@ -21,9 +21,9 @@ Attachments are attached to events as metadata. Attachment binary data is stored
 IndexedDB by `LocalAttachmentRepository`; c8table records store `storage`, `localBlobKey`, name,
 mime, size, timestamps, and future Teable attachment ids when available.
 
-Android companion work is in protocol/design phase only. The repository now reserves
-`apps/android`, documents the mobile product boundary, and defines a schema-first sync contract
-under `packages/protocol` without adding unverified Gradle tooling.
+Android companion work now has a first debug APK. `apps/android` is a Kotlin + Compose project that
+stores the c8table token locally, ensures the shared fields exist, lists events, and quick-creates
+events against the same table. The schema-first sync contract remains under `packages/protocol`.
 
 ## Active Change
 
@@ -44,8 +44,9 @@ Current active change: `harness/changes/active/summary.md`
 - Without a token, event writes are blocked instead of using local event fallback storage.
 - The Tauri shell is back to a normal decorated, taskbar-visible window. Desktop wallpaper
   attachment is not part of the current runnable mode.
-- Android companion artifacts are docs/protocol only. No Android SDK, Gradle, or Compose command is
-  required for the current desktop verification path.
+- Android APK output: `apps/android/app/build/outputs/apk/debug/app-debug.apk`.
+- macOS Apple Silicon DMG packaging is configured through `.github/workflows/build-macos-arm64.yml`.
+  It must run on macOS infrastructure; Windows is not used to produce the DMG locally.
 - Tauri release build succeeds.
 
 ## Verification
@@ -56,6 +57,10 @@ Current active change: `harness/changes/active/summary.md`
 - `uv run --no-editable desktopcal lint`: passed.
 - `uv run --no-editable desktopcal build`: passed and produced the Windows executable plus NSIS
   installer.
+- `powershell -ExecutionPolicy Bypass -File apps\android\build-debug.ps1`: passed and produced a
+  debug APK.
+- Android `testDebugUnitTest`: passed with no current unit-test sources.
+- Android APK signature verification with `apksigner`: passed using APK Signature Scheme v2.
 - Browser smoke check against `http://127.0.0.1:5173`: passed for date double-click, drawer
   visibility, unit-derived marker preview, time field, note field, attachment input, and translucent
   UI styling.

@@ -1,43 +1,44 @@
-# Android App Boundary
+# DesktopCal Android Companion
 
-This directory is reserved for the Android companion app.
+This is the first installable Android companion package for DesktopCal.
 
-The Android app should be introduced as a Kotlin + Jetpack Compose project only after the local
-Android toolchain is confirmed. Until then, this directory documents the intended boundary without
-adding Gradle files that would fail unrelated desktop verification.
+## Current Capability
 
-## Intended Responsibility
+- Kotlin + Jetpack Compose app.
+- Stores the c8table API token in Android app preferences.
+- Reads entries from the same c8table table used by the desktop app.
+- Ensures the shared DesktopCal c8table fields exist.
+- Creates quick events with title, date, time, unit/source, type, and 1-5 importance.
 
-- Mobile capture.
-- Android notification reminders.
-- Local Room cache.
-- Local attachment/media storage.
-- c8table pull and push through the shared protocol.
+The package does not yet implement background sync, Android notifications, local Room cache, or
+attachment upload.
 
-## Non-Responsibility
+## Build
 
-- Desktop report generation.
-- c8table field administration beyond the shared event fields.
-- Windows shell behavior.
+The repository path contains Chinese characters. On Windows, call the wrapper through PowerShell
+instead of running `gradlew.bat` directly:
 
-## Planned Layers
-
-```text
-apps/android/
-  app/                  # Android application module
-  core/model/           # Kotlin models generated or mirrored from protocol schema
-  core/sync/            # c8table sync client and WorkManager jobs
-  core/storage/         # Room database and DataStore settings
-  feature/capture/      # text, voice, photo, share target
-  feature/now/          # mobile action list
-  feature/detail/       # event edit flow
+```powershell
+powershell -ExecutionPolicy Bypass -File apps\android\build-debug.ps1
 ```
 
-## Verification Gate Before Gradle Files
+Output:
 
-Before adding the real Android project, verify:
+```text
+apps\android\app\build\outputs\apk\debug\app-debug.apk
+```
 
-- JDK is installed and selected.
-- Android Studio or Android SDK command-line tools are installed.
-- `ANDROID_HOME` or `ANDROID_SDK_ROOT` is configured.
-- A minimal Compose project can build independently from root `npm` and `uv` commands.
+## Required Local Environment
+
+- JDK 17.
+- Android SDK.
+- `ANDROID_HOME` or `ANDROID_SDK_ROOT`.
+- Android SDK Platform 36.
+- Android SDK Build-Tools 36.1.0.
+
+Installed local paths on this machine:
+
+```text
+JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot
+ANDROID_HOME=C:\Users\Administrator\AppData\Local\Android\Sdk
+```

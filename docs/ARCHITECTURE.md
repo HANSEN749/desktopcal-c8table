@@ -2,10 +2,10 @@
 
 ## 1 Overview
 
-DesktopCal is a desktop-first calendar and time-recording tool with a planned Android companion.
-The current runnable product uses Tauri 2 for the Windows shell, React + TypeScript for the UI,
-shared TypeScript types for domain contracts, repository abstractions for event persistence, and a
-Python CLI managed by uv as the single human-facing command surface.
+DesktopCal is a desktop-first calendar and time-recording tool with an Android companion package.
+The current runnable desktop product uses Tauri 2 for the Windows shell, React + TypeScript for the
+UI, shared TypeScript types for domain contracts, repository abstractions for event persistence, and
+a Python CLI managed by uv as the single human-facing desktop command surface.
 
 ## 2 System Shape
 
@@ -22,7 +22,7 @@ flowchart LR
   Repo --> IndexedDB["IndexedDB local data"]
   Tauri --> Web
   PyCLI --> Harness["ECL Harness"]
-  Android["Planned Android Companion"] -. syncs .-> Teable
+  Android["Android Companion APK"] -. syncs .-> Teable
   Android -. uses .-> Protocol["packages/protocol schemas"]
   Protocol -. constrains .-> Shared
 ```
@@ -37,7 +37,7 @@ flowchart LR
 | L2 | `apps/web/src/components` | React layout, month calendar, event drawer, upcoming list, and report preview |
 | L2 | `apps/web/src` | React app composition and interaction state |
 | L3 | `apps/desktop/src-tauri` | Native window shell and Tauri runtime |
-| Planned | `apps/android` | Android companion boundary for mobile capture, reminders, local cache, and c8table sync |
+| Android | `apps/android` | Kotlin + Compose companion package for mobile c8table list and quick create |
 | Planned | `packages/protocol` | Cross-device JSON Schema contracts before Android/Kotlin code generation exists |
 | Tooling | `src/desktopcal` | uv command orchestration, environment checks, harness commands |
 
@@ -99,15 +99,14 @@ upload local files and preserve `teableAttachmentId` for migrated attachments.
 
 ## 9 Android Companion Boundary
 
-The Android app is planned as a different mobile experience, not a resized month calendar. Its
-primary responsibilities are capture, reminders, local media attachment, and quick event status
-updates. Desktop remains the dense planning, c8table administration, and report surface.
+The Android app is a different mobile experience, not a resized month calendar. The first package
+supports c8table token storage, event listing, field creation, and quick event creation. Desktop
+remains the dense planning, c8table administration, and report surface.
 
-Android is intentionally staged behind protocol artifacts first:
+Android remains constrained by the shared protocol:
 
 - `docs/ANDROID_COMPANION.md` describes product boundaries and phases.
 - `docs/SYNC_PROTOCOL.md` describes cross-device sync behavior.
 - `packages/protocol/schemas/entry.v1.schema.json` is the schema-first contract shared by desktop
   and Android.
-- `apps/android/README.md` reserves the Android app boundary without adding Gradle files before the
-  Android toolchain is verified.
+- `apps/android/README.md` documents the local debug APK build and current package boundary.
