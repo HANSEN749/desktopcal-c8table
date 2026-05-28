@@ -45,8 +45,9 @@ Current active change: `harness/changes/active/summary.md`
 - The Tauri shell is back to a normal decorated, taskbar-visible window. Desktop wallpaper
   attachment is not part of the current runnable mode.
 - Android APK output: `apps/android/app/build/outputs/apk/debug/app-debug.apk`.
-- macOS Apple Silicon DMG packaging is configured through `.github/workflows/build-macos-arm64.yml`.
-  It must run on macOS infrastructure; Windows is not used to produce the DMG locally.
+- macOS Apple Silicon DMG packaging is configured and verified through
+  `.github/workflows/build-macos-arm64.yml`. It must run on macOS infrastructure; Windows is not
+  used to produce the DMG locally.
 - Tauri release build succeeds.
 
 ## Verification
@@ -61,6 +62,8 @@ Current active change: `harness/changes/active/summary.md`
   debug APK.
 - Android `testDebugUnitTest`: passed with no current unit-test sources.
 - Android APK signature verification with `apksigner`: passed using APK Signature Scheme v2.
+- GitHub Actions `Build macOS arm64 DMG`: passed on run `26593082004`; artifact downloaded locally
+  to `dist/macos-arm64/DesktopCal_0.1.0_aarch64.dmg`.
 - Browser smoke check against `http://127.0.0.1:5173`: passed for date double-click, drawer
   visibility, unit-derived marker preview, time field, note field, attachment input, and translucent
   UI styling.
