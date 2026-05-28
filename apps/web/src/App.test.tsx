@@ -50,7 +50,8 @@ describe("App event interactions", () => {
     render(<App entryRepository={new MemoryEntryRepository()} attachmentRepository={makeAttachmentRepository()} />);
 
     await screen.findByText("近期暂无事件");
-    fireEvent.doubleClick(screen.getByTestId(`day-${today}`));
+    expect(screen.getByRole("button", { name: "常用视图" })).toHaveClass("active");
+    fireEvent.doubleClick(screen.getByTestId(`common-day-${today}`));
 
     expect(screen.getByRole("heading", { name: "新增事件" })).toBeInTheDocument();
     expect(screen.getByLabelText("日期")).toHaveValue(today);
@@ -66,14 +67,45 @@ describe("App event interactions", () => {
     render(<App entryRepository={repo} attachmentRepository={makeAttachmentRepository()} />);
 
     await screen.findByText("近期暂无事件");
-    fireEvent.doubleClick(screen.getByTestId(`day-${today}`));
+    fireEvent.doubleClick(screen.getByTestId(`common-day-${today}`));
     fireEvent.change(screen.getByLabelText("标题"), { target: { value: "新增组会" } });
     fireEvent.change(screen.getByLabelText("单位"), { target: { value: "research" } });
     fireEvent.click(screen.getAllByRole("button", { name: "保存" }).at(-1) as HTMLElement);
 
     await waitFor(() => expect(repo.create).toHaveBeenCalled());
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ unit: "research" }));
+    fireEvent.click(screen.getByRole("button", { name: "日历模式" }));
     expect(await screen.findAllByText("新增组会")).toHaveLength(2);
+  });
+
+  it("shows a common schedule window with at least ten events in one day", async () => {
+    const today = toDateKey(new Date());
+    const base = new Date(`${today}T00:00:00`);
+    const entries = Array.from({ length: 12 }, (_, index) =>
+      makeEntry({
+        id: `rec-${index}`,
+        localId: `local-${index}`,
+        title: `事项 ${index + 1}`,
+        date: today,
+        time: `${String(8 + Math.floor(index / 2)).padStart(2, "0")}:${index % 2 === 0 ? "00" : "30"}`,
+      }),
+    );
+    entries.push(
+      makeEntry({
+        id: "old",
+        localId: "old",
+        title: "范围外旧事项",
+        date: toDateKey(new Date(base.getTime() - 4 * 86_400_000)),
+      }),
+    );
+    render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
+
+    expect(await screen.findByText("前 3 天到后 11 天")).toBeInTheDocument();
+    for (let index = 1; index <= 10; index += 1) {
+      expect(screen.getByText(`事项 ${index}`)).toBeInTheDocument();
+    }
+    expect(screen.getByText("还有 2 条")).toBeInTheDocument();
+    expect(screen.queryByText("范围外旧事项")).not.toBeInTheDocument();
   });
 
   it("parses quick add text and opens the drawer for confirmation", async () => {
@@ -230,7 +262,7 @@ describe("App event interactions", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "保存" }).at(-1) as HTMLElement);
 
     await waitFor(() => expect(repo.update).toHaveBeenCalled());
-    expect(await screen.findAllByText("更新事件")).toHaveLength(2);
+    expect(await screen.findAllByText("更新事件")).toHaveLength(1);
   });
 
   it("shows uploaded local attachment names in the drawer", async () => {
@@ -239,7 +271,7 @@ describe("App event interactions", () => {
     render(<App entryRepository={new MemoryEntryRepository()} attachmentRepository={attachments} />);
 
     await screen.findByText("近期暂无事件");
-    fireEvent.doubleClick(screen.getByTestId(`day-${today}`));
+    fireEvent.doubleClick(screen.getByTestId(`common-day-${today}`));
     await userEvent.upload(
       screen.getByLabelText("添加附件"),
       new File(["image-bytes"], "photo.png", { type: "image/png" }),

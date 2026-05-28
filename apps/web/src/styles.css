@@ -209,9 +209,9 @@ input:disabled {
 .workspace {
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 18px;
+  gap: 14px;
   min-width: 0;
-  padding: 24px;
+  padding: 20px;
 }
 
 .topbar {
@@ -276,9 +276,159 @@ input:disabled {
 
 .dashboard {
   display: grid;
-  grid-template-columns: minmax(590px, 1fr) 340px;
-  gap: 18px;
+  grid-template-columns: minmax(660px, 1fr) 330px;
+  gap: 14px;
   min-height: 0;
+}
+
+.commonPane {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+
+.commonHeader {
+  padding: 0 0 12px;
+}
+
+.commonHeader h3 {
+  font-size: 22px;
+}
+
+.commonHeader > span {
+  color: #1f7a68;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.commonDayGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding: 1px 2px 10px;
+}
+
+.commonDayCard {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 246px;
+  border: 1px solid #dfe6e3;
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 26px rgba(22, 59, 53, 0.06);
+  outline: none;
+}
+
+.commonDayCard.today {
+  border-color: #1f7a68;
+  box-shadow: inset 0 0 0 1px #1f7a68, 0 10px 26px rgba(22, 59, 53, 0.06);
+}
+
+.commonDayCard.past {
+  background: rgba(247, 249, 248, 0.7);
+}
+
+.commonDayCard:focus-visible {
+  outline: 2px solid #2f6eb5;
+  outline-offset: -2px;
+}
+
+.commonDayHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid #e7ecea;
+  padding-bottom: 8px;
+}
+
+.commonDayHeader div {
+  display: grid;
+  gap: 2px;
+}
+
+.commonDayHeader div:last-child {
+  justify-items: end;
+}
+
+.commonDayHeader strong {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.commonDayHeader span,
+.commonDayHeader em,
+.commonEmpty,
+.commonMore {
+  color: #6f7a80;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.commonDayHeader div:last-child span {
+  color: #1f7a68;
+  font-weight: 700;
+}
+
+.commonEntryList {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-height: 0;
+  padding-top: 8px;
+}
+
+.commonEntry {
+  display: grid;
+  grid-template-columns: 20px 36px 18px 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 18px;
+  border: 0;
+  border-radius: 6px;
+  padding: 1px 3px;
+  background: transparent;
+  color: #202124;
+  font-size: 11px;
+  text-align: left;
+}
+
+.commonEntry:hover {
+  background: rgba(31, 122, 104, 0.08);
+}
+
+.commonEntry .marker {
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+}
+
+.commonTime,
+.commonMeta,
+.commonUnit {
+  overflow: hidden;
+  color: #6f7a80;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commonEntry strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commonMore {
+  padding: 2px 3px 0;
+  color: #1f7a68;
+  font-weight: 700;
 }
 
 .calendarPane,
@@ -302,11 +452,11 @@ input:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px;
+  padding: 14px;
 }
 
 .paneHeader h3 {
-  font-size: 22px;
+  font-size: 21px;
 }
 
 .paneHeader.compact {
@@ -340,7 +490,7 @@ input:disabled {
 }
 
 .weekdayRow span {
-  padding: 10px;
+  padding: 7px;
   text-align: center;
 }
 
@@ -349,10 +499,10 @@ input:disabled {
 }
 
 .dayCell {
-  min-height: 94px;
+  min-height: 108px;
   border-right: 1px solid #e7ecea;
   border-bottom: 1px solid #e7ecea;
-  padding: 10px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.58);
   outline: none;
 }
@@ -384,7 +534,7 @@ input:disabled {
 }
 
 .cellTop strong {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .cellTop span {
@@ -392,26 +542,55 @@ input:disabled {
   font-size: 11px;
 }
 
-.cellMarks {
-  display: flex;
-  gap: 4px;
-  min-height: 24px;
-  margin-top: 8px;
+.monthEntryList {
+  display: grid;
+  gap: 2px;
+  margin-top: 5px;
 }
 
-.cellEntryButton {
-  display: block;
+.monthEntryButton {
+  display: grid;
+  grid-template-columns: 16px 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px;
   width: 100%;
-  margin: 6px 0 0;
+  min-height: 17px;
   border: 0;
-  padding: 0;
+  border-radius: 5px;
+  padding: 0 2px;
   overflow: hidden;
   background: transparent;
   color: #48514e;
-  font-size: 12px;
+  font-size: 10px;
   text-align: left;
+}
+
+.monthEntryButton:hover {
+  background: rgba(31, 122, 104, 0.08);
+}
+
+.monthEntryButton .marker {
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+}
+
+.monthEntryButton span,
+.monthEntryButton strong {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.monthEntryButton strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.monthMore {
+  color: #1f7a68;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .rightRail {
@@ -1138,6 +1317,10 @@ input:disabled {
 @media (max-width: 1180px) {
   .dashboard {
     grid-template-columns: minmax(560px, 1fr) 320px;
+  }
+
+  .commonDayGrid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
   .eventDrawer {

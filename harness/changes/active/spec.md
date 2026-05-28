@@ -14,6 +14,11 @@ local IndexedDB until the target Teable table gains an attachment field.
 - Quick add still creates a today event from a title only.
 - Month cells show event count, markers, and the first title; the upcoming list refreshes from the
   same event state.
+- The main navigation separates `常用视图` and `日历模式`, with `常用视图` as the default.
+- `常用视图` shows a rolling window from 3 days before today through 11 days after today, using
+  larger day cards that can display at least 10 events per day before overflow summary text.
+- `日历模式` keeps the month grid but uses denser cells that show multiple event titles, times, and
+  markers instead of only the first title.
 - UI code depends on an `EntryRepository` interface, not on Teable or IndexedDB directly.
 - c8table is the source of truth for events; the frontend polls for table-side changes and blocks
   event writes until a local token exists.

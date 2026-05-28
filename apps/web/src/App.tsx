@@ -9,6 +9,7 @@ import {
 } from "@desktopcal/shared";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout, type RepositoryMode } from "./components/AppLayout";
+import { CommonScheduleView } from "./components/CommonScheduleView";
 import { EventDrawer } from "./components/EventDrawer";
 import { MonthCalendar } from "./components/MonthCalendar";
 import { QuickAdd } from "./components/QuickAdd";
@@ -33,7 +34,7 @@ interface DrawerState {
   draft?: EntryDraft;
 }
 
-export type AppView = "calendar" | "time" | "reports" | "settings";
+export type AppView = "common" | "calendar" | "time" | "reports" | "settings";
 
 type UnitProfileMap = Record<EntryUnitId, EntryUnitProfile>;
 
@@ -87,7 +88,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   const [range, setRange] = useState<3 | 7 | 14>(7);
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, date: today });
-  const [activeView, setActiveView] = useState<AppView>("calendar");
+  const [activeView, setActiveView] = useState<AppView>("common");
   const [statusText, setStatusText] = useState("正在读取 c8table");
   const [saveError, setSaveError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -268,6 +269,16 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
         />
       }
     >
+      {activeView === "common" ? (
+        <CommonScheduleView
+          entries={entries}
+          today={today}
+          unitProfiles={unitProfiles}
+          onCreateAtDate={(date) => setDrawer({ open: true, date })}
+          onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+        />
+      ) : null}
+
       {activeView === "calendar" ? (
         <div className="dashboard">
           <MonthCalendar

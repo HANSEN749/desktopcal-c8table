@@ -2,7 +2,7 @@ import type { Entry } from "@desktopcal/shared";
 import type { ReactNode } from "react";
 
 export type RepositoryMode = "teable" | "disconnected";
-export type AppView = "calendar" | "time" | "reports" | "settings";
+export type AppView = "common" | "calendar" | "time" | "reports" | "settings";
 
 interface AppLayoutProps {
   activeView: AppView;
@@ -30,11 +30,18 @@ export function AppLayout({
         </div>
         <nav className="sideNav" aria-label="Primary">
           <button
+            className={activeView === "common" ? "navItem active" : "navItem"}
+            type="button"
+            onClick={() => onViewChange("common")}
+          >
+            常用视图
+          </button>
+          <button
             className={activeView === "calendar" ? "navItem active" : "navItem"}
             type="button"
             onClick={() => onViewChange("calendar")}
           >
-            日历总览
+            日历模式
           </button>
           <button
             className={activeView === "time" ? "navItem active" : "navItem"}

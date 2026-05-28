@@ -84,7 +84,6 @@ export function MonthCalendar({
           const dateKey = toDateKey(day);
           const dayEntries = entriesByDate.get(dateKey) ?? [];
           const muted = day.getMonth() !== currentMonth.getMonth();
-          const firstEntry = dayEntries[0];
           return (
             <article
               className={`dayCell${muted ? " muted" : ""}${dateKey === today ? " today" : ""}`}
@@ -97,29 +96,29 @@ export function MonthCalendar({
                 <strong>{day.getDate()}</strong>
                 {dayEntries.length > 0 ? <span>{dayEntries.length} 条</span> : null}
               </div>
-              <div className="cellMarks">
-                {dayEntries.slice(0, 4).map((entry) => (
-                  <span
-                    className={`marker level${entry.importance}`}
-                    key={entry.id}
-                    title={(unitProfiles[entry.unit] ?? unitProfiles.work).label}
-                  >
-                    {getEntryMarkerSymbol((unitProfiles[entry.unit] ?? unitProfiles.work).shape, entry.kind)}
-                  </span>
-                ))}
+              <div className="monthEntryList">
+                {dayEntries.slice(0, 6).map((entry) => {
+                  const unitProfile = unitProfiles[entry.unit] ?? unitProfiles.work;
+                  return (
+                    <button
+                      className="monthEntryButton"
+                      key={entry.id}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onEditEntry(entry);
+                      }}
+                    >
+                      <span className={`marker level${entry.importance}`} title={unitProfile.label}>
+                        {getEntryMarkerSymbol(unitProfile.shape, entry.kind)}
+                      </span>
+                      <span>{entry.time ?? ""}</span>
+                      <strong>{entry.title}</strong>
+                    </button>
+                  );
+                })}
+                {dayEntries.length > 6 ? <span className="monthMore">+{dayEntries.length - 6}</span> : null}
               </div>
-              {firstEntry ? (
-                <button
-                  className="cellEntryButton"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEditEntry(firstEntry);
-                  }}
-                >
-                  {firstEntry.title}
-                </button>
-              ) : null}
             </article>
           );
         })}
