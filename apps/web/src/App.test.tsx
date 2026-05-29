@@ -312,12 +312,15 @@ describe("App event interactions", () => {
   it("persists custom source names in settings", async () => {
     const storage = window.localStorage;
     storage.clear();
-    const { unmount } = render(
+    const { container, unmount } = render(
       <App entryRepository={new MemoryEntryRepository()} attachmentRepository={makeAttachmentRepository()} storage={storage} />,
     );
 
     await screen.findByText("近期暂无事件");
     fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    expect(
+      [...container.querySelectorAll(".markerNameField input")].map((input) => input.getAttribute("aria-label")),
+    ).toEqual(["科研名称", "单位名称", "评审名称", "个人名称", "其他名称"]);
     fireEvent.change(screen.getByLabelText("单位名称"), { target: { value: "工作" } });
     expect(screen.getByRole("heading", { name: "分类名称" })).toBeInTheDocument();
     unmount();

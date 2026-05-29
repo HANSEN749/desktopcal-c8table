@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm --workspace @desktopcal/desktop run tauri:dev",
     "dev:web": "npm --workspace @desktopcal/web run dev",
+    "preview:web": "npm --workspace @desktopcal/web run preview",
     "build:web": "npm --workspace @desktopcal/shared run build && npm --workspace @desktopcal/web run build",
     "build": "npm --workspace @desktopcal/shared run build && npm --workspace @desktopcal/web run build && npm --workspace @desktopcal/desktop run tauri:build",
     "test": "npm --workspace @desktopcal/web run test -- --run",

@@ -27,6 +27,7 @@ import {
   clearTeableOAuthSession,
   completeTeableOAuthCallback,
   ensureFreshTeableOAuthToken,
+  getTeableOAuthRedirectUri,
   readTeableOAuthConfig,
   readTeableOAuthSession,
   saveStoredOAuthClientId,
@@ -481,6 +482,7 @@ function SettingsView({
   const [aiBaseUrl, setAiBaseUrl] = useState(aiParserConfig.baseUrl);
   const [aiModel, setAiModel] = useState(aiParserConfig.model);
   const units = Object.values(unitProfiles);
+  const oauthRedirectUri = getTeableOAuthRedirectUri();
 
   useEffect(() => {
     setOauthClientId(oauthState.config.clientId ?? "");
@@ -571,7 +573,7 @@ function SettingsView({
         <section className="settingsCard" aria-label="c8table OAuth login">
           <div className="settingsCardHeader">
             <div>
-              <p className="eyebrow">网页登录</p>
+              <p className="eyebrow">OAuth 登录</p>
               <h4>{oauthState.connected ? "OAuth 已连接" : oauthState.config.clientId ? "OAuth 可登录" : "缺少 Client ID"}</h4>
             </div>
             <span>PKCE</span>
@@ -579,7 +581,11 @@ function SettingsView({
           <dl className="settingsDefinition">
             <div>
               <dt>授权</dt>
-              <dd>c8table OAuth，多端共用同一张表</dd>
+              <dd>桌面和网页共用 c8table OAuth</dd>
+            </div>
+            <div>
+              <dt>回调</dt>
+              <dd title={oauthRedirectUri}>{oauthRedirectUri}</dd>
             </div>
             <div>
               <dt>状态</dt>

@@ -3,11 +3,27 @@ import {
   TEABLE_OAUTH_CLIENT_ID_STORAGE_KEY,
   TEABLE_OAUTH_SESSION_STORAGE_KEY,
   ensureFreshTeableOAuthToken,
+  getTeableOAuthRedirectUri,
   readFreshOAuthAccessToken,
   readTeableOAuthConfig,
 } from "./TeableOAuth";
 
 describe("Teable OAuth token storage", () => {
+  it("uses the current app origin as the OAuth redirect URL for web or Tauri", () => {
+    expect(
+      getTeableOAuthRedirectUri({
+        origin: "http://tauri.localhost",
+        pathname: "/",
+      } as Location),
+    ).toBe("http://tauri.localhost/");
+    expect(
+      getTeableOAuthRedirectUri({
+        origin: "http://127.0.0.1:5600",
+        pathname: "/",
+      } as Location),
+    ).toBe("http://127.0.0.1:5600/");
+  });
+
   it("uses a fresh OAuth access token as the repository token", () => {
     const storage = window.localStorage;
     storage.clear();

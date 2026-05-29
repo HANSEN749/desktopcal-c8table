@@ -73,9 +73,10 @@ On startup it ensures the table has structured fields for 标题, 日期, 时间
 readable title mirror only; if it still contains a previous JSON envelope, the repository parses
 that row and PATCHes the structured columns back into c8table.
 
-Personal API tokens are runtime/local configuration only. The standalone web surface also supports
-c8table OAuth 2.0 PKCE; OAuth access tokens are stored in browser local storage and refreshed with
-the stored refresh token. No token or OAuth secret is committed to git-tracked files.
+Personal API tokens are runtime/local configuration only. The standalone web surface and packaged
+Windows executable also support c8table OAuth 2.0 PKCE; OAuth access tokens are stored in browser
+local storage and refreshed with the stored refresh token. No token or OAuth secret is committed to
+git-tracked files.
 
 The frontend treats c8table as the event source of truth. Desktop, standalone web, and Android load
 records from the same table, write create/update/delete operations back to c8table, and poll for

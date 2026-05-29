@@ -15,9 +15,9 @@ shows more visible event text, times, and markers per cell. `时间记录` is no
 for high-volume work: unfinished current/future items are grouped by day, sorted by importance and
 time, and completed items move into a collapsed history group.
 
-The same React/Vite UI can run as a standalone web app. Web login supports c8table OAuth 2.0 PKCE
-with an OAuth Client ID from settings or `VITE_TEABLE_OAUTH_CLIENT_ID`; manual API token entry
-remains available for local/internal use.
+The same React/Vite UI can run as a standalone web app or inside the Windows executable. OAuth login
+supports c8table OAuth 2.0 PKCE with an OAuth Client ID from settings or
+`VITE_TEABLE_OAUTH_CLIENT_ID`; manual API token entry remains available for local/internal use.
 
 The drawer edits semantic event fields. Users choose a unit/source such as `单位`, `科研`, `评审`,
 `个人`, or `其他`; the unit decides marker shape. The type field decides fill: `持续` is solid and
@@ -71,7 +71,8 @@ Current active change: `harness/changes/active/summary.md`
 - Android APK signature verification with `apksigner`: passed using APK Signature Scheme v2.
 - GitHub Actions `Build macOS arm64 DMG`: passed on run `26593350848`; artifact downloaded locally
   to `dist/macos-arm64/DesktopCal_0.1.0_aarch64.dmg`.
-- Vite dev port now defaults to `http://127.0.0.1:5600` to avoid Windows-reserved 5173 ranges.
+- Vite dev port now defaults to `0.0.0.0:5600` to avoid Windows-reserved 5173 ranges and allow LAN
+  web access during development.
 
 ## Next Recommended Step
 

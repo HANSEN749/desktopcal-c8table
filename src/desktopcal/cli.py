@@ -144,6 +144,10 @@ def cmd_dev(_: argparse.Namespace) -> int:
     return run(["npm", "run", "dev"])
 
 
+def cmd_web(_: argparse.Namespace) -> int:
+    return run(["npm", "run", "dev:web"])
+
+
 def cmd_build(_: argparse.Namespace) -> int:
     return run(["npm", "run", "build"])
 
@@ -312,6 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, handler in [
         ("doctor", cmd_doctor),
         ("dev", cmd_dev),
+        ("web", cmd_web),
         ("build", cmd_build),
         ("test", cmd_test),
         ("lint", cmd_lint),

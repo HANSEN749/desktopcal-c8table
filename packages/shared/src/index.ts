@@ -110,15 +110,15 @@ export const kindShortLabels: Record<EventKind, string> = {
 };
 
 export const entryUnitProfiles: Record<EntryUnitId, EntryUnitProfile> = {
-  work: {
-    id: "work",
-    label: "单位",
-    shape: "triangle",
-  },
   research: {
     id: "research",
     label: "科研",
     shape: "circle",
+  },
+  work: {
+    id: "work",
+    label: "单位",
+    shape: "triangle",
   },
   review: {
     id: "review",

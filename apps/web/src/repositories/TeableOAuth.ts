@@ -124,7 +124,7 @@ export async function beginTeableOAuthLogin(
   const state = randomBase64Url(24);
   const verifier = randomBase64Url(48);
   const challenge = await codeChallenge(verifier);
-  const redirectUri = `${location.origin}${location.pathname}`;
+  const redirectUri = getTeableOAuthRedirectUri(location);
   storage.setItem(TEABLE_OAUTH_STATE_STORAGE_KEY, state);
   storage.setItem(TEABLE_OAUTH_VERIFIER_STORAGE_KEY, verifier);
   storage.setItem(TEABLE_OAUTH_REDIRECT_STORAGE_KEY, redirectUri);
@@ -139,6 +139,11 @@ export async function beginTeableOAuthLogin(
     code_challenge_method: "S256",
   });
   location.assign(`${config.baseUrl.replace(/\/$/, "")}/api/oauth/authorize?${params}`);
+}
+
+export function getTeableOAuthRedirectUri(location: Location = window.location): string {
+  const path = location.pathname && location.pathname !== "/" ? location.pathname : "/";
+  return `${location.origin}${path}`;
 }
 
 export async function completeTeableOAuthCallback(

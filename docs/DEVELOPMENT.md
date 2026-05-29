@@ -28,7 +28,9 @@ and re-run doctor.
 | --- | --- |
 | `uv run --no-editable desktopcal doctor` | Check uv, Node, npm, Rust/Cargo, WebView2, and Tauri CLI |
 | `uv run --no-editable desktopcal dev` | Start the Windows Tauri development window |
-| `npm run dev:web` | Start the standalone web app on `127.0.0.1:5600` by default |
+| `uv run --no-editable desktopcal web` | Start the standalone web app on `0.0.0.0:5600` by default |
+| `npm run dev:web` | Same web dev server, useful when not using the uv CLI |
+| `npm run preview:web` | Serve the already-built web app |
 | `npm run build:web` | Build shared types and the standalone web app |
 | `uv run --no-editable desktopcal build` | Build shared types, web UI, and Tauri bundle |
 | `uv run --no-editable desktopcal test` | Run Python tests and React/Vitest tests |
@@ -69,12 +71,13 @@ Teable token options:
 
 - Enter the token in the sidebar connection panel at runtime.
 - Or use a local, untracked Vite environment value named `VITE_TEABLE_TOKEN`.
-- For the standalone web app, configure a c8table OAuth App Client ID in settings or with
-  `VITE_TEABLE_OAUTH_CLIENT_ID`, then use the OAuth login button. The web app uses PKCE and does
-  not require a client secret in the browser.
+- For the standalone web app or the local Tauri executable, configure a c8table OAuth App Client ID
+  in settings or with `VITE_TEABLE_OAUTH_CLIENT_ID`, then use the OAuth login button. The app uses
+  PKCE and does not require a client secret in the browser.
 
 The Vite development port defaults to `5600` because some Windows installations reserve the 5173
-range. Override it with `VITE_DEV_PORT` if needed.
+range. It binds to `0.0.0.0` so the same web page can be opened from the local network. Override
+with `VITE_DEV_PORT` or `VITE_DEV_HOST` if needed.
 
 ## 5 Troubleshooting
 

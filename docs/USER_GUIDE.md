@@ -25,7 +25,7 @@ c8table，附件文件先保存在本机 IndexedDB；常用视图、日历模式
 进入 `设置` 页面后，可以用两种方式连接 c8table：
 
 - 桌面/内部使用：在 `c8table` 卡片里保存 API token。
-- 网页使用：在 `网页登录` 卡片里保存 OAuth Client ID，然后点击 `登录` 走 c8table OAuth PKCE。
+- 桌面和网页统一登录：在 `OAuth 登录` 卡片里保存 OAuth Client ID，然后点击 `登录` 走 c8table OAuth PKCE。
 
 token 和 OAuth 会话只保存在本机或当前浏览器，不写入仓库。
 

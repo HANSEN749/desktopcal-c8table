@@ -1,15 +1,18 @@
 # Standalone Web OAuth
 
-DesktopCal's web build uses the same React UI and the same c8table-backed `EntryRepository` as the
-Windows desktop shell. There is no separate web database: desktop, web, Android, and c8table all
-read and write the same table records.
+DesktopCal's web build and Windows executable use the same React UI and the same c8table-backed
+`EntryRepository`. There is no separate web database: desktop, web, Android, and c8table all read
+and write the same table records.
 
 ## 1 OAuth App Setup
 
 Create an OAuth App in c8table/Teable settings:
 
 - Homepage URL: the deployed DesktopCal web URL.
-- Callback URL: the same deployed URL root. For local development, use `http://127.0.0.1:5600/`.
+- Callback URL: use the exact `回调` value shown in `设置 -> OAuth 登录`.
+- For local web development this is usually `http://127.0.0.1:5600/`, or your LAN URL if you open
+  the web app from another device.
+- For the packaged Windows executable this is usually `http://tauri.localhost/`.
 - Flow: Authorization Code with PKCE.
 - Scopes: `table|read field|read field|create record|read record|create record|update record|delete`.
 
@@ -18,7 +21,7 @@ Only the OAuth Client ID is used by the browser. Do not put a client secret in t
 ## 2 Local Development
 
 ```powershell
-npm run dev:web
+uv run --no-editable desktopcal web
 ```
 
 The default Vite dev URL is:
@@ -39,7 +42,7 @@ npm run dev:web
 Preferred web login:
 
 1. Open `设置`.
-2. Save the c8table OAuth Client ID in `网页登录`.
+2. Save the c8table OAuth Client ID in `OAuth 登录`.
 3. Click `登录`.
 4. Approve access in c8table.
 

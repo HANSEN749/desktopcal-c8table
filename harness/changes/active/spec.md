@@ -37,8 +37,8 @@ local IndexedDB until the target Teable table gains an attachment field.
 - `LocalAttachmentRepository` stores attachment blobs in IndexedDB and event records keep attachment
   metadata with local blob keys.
 - API token handling is runtime/local only and no secret is committed to tracked files.
-- The standalone web build supports c8table OAuth 2.0 PKCE login with a locally configured OAuth
-  Client ID; browser clients never store an OAuth client secret.
+- The standalone web build and packaged Windows executable support c8table OAuth 2.0 PKCE login
+  with a locally configured OAuth Client ID; browser clients never store an OAuth client secret.
 - Android companion work stays within the existing ECL harness architecture: protocol artifacts,
   product boundaries, Gradle project files, and build outputs are tracked through this change.
 - Cross-device contracts are schema-first and use the same `desktopcal.entry.v1` event model for
