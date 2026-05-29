@@ -20,6 +20,7 @@ import { addDays, toDateKey } from "./domain/date";
 import { groupUpcomingEntries } from "./domain/upcoming";
 import type { AttachmentRepository, EntryDraft, EntryRepository } from "./repositories/EntryRepository";
 import { sortEntries } from "./repositories/EntryRepository";
+import { DEFAULT_FEISHU_BASE_URL } from "./repositories/FeishuBitableEntryRepository";
 import { LocalAttachmentRepository } from "./repositories/LocalAttachmentRepository";
 import { DEFAULT_TEABLE_BASE_URL, DEFAULT_TEABLE_TABLE_ID } from "./repositories/TeableJsonEntryRepository";
 import {
@@ -36,7 +37,11 @@ import {
 import {
   createDefaultEntryRepository,
   readRuntimeRepositoryConfig,
+  saveStoredFeishuConfig,
+  saveStoredRepositoryProvider,
   saveStoredTeableToken,
+  type FeishuRuntimeConfig,
+  type RepositoryProvider,
 } from "./repositories/runtimeConfig";
 
 interface DrawerState {
@@ -108,30 +113,36 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, date: today });
   const [activeView, setActiveView] = useState<AppView>("common");
-  const [statusText, setStatusText] = useState("正在读取 c8table");
+  const [statusText, setStatusText] = useState("正在读取事件");
   const [saveError, setSaveError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
-  const linkedToTable = Boolean(runtimeConfig.token || entryRepository);
-  const mode: RepositoryMode = linkedToTable ? "teable" : "disconnected";
+  const remoteConfigured = Boolean(
+    entryRepository ||
+      (runtimeConfig.provider === "teable" && runtimeConfig.teableToken) ||
+      (runtimeConfig.provider === "feishu" &&
+        runtimeConfig.feishu.accessToken &&
+        runtimeConfig.feishu.appToken &&
+        runtimeConfig.feishu.tableId),
+  );
+  const mode: RepositoryMode = entryRepository ? "teable" : runtimeConfig.provider;
+  const backendLabel = backendModeLabel(mode);
   const groups = useMemo(() => groupUpcomingEntries(entries, today, range), [entries, range, today]);
 
   const refreshEntries = useCallback(
     async (silent = false) => {
       if (!silent) {
-        setStatusText(linkedToTable ? "正在读取 c8table" : "请保存 c8table API token");
+        setStatusText(remoteConfigured ? `正在读取 ${backendLabel}` : "正在读取本地备用库");
       }
       const items = await repository.list();
       setEntries(sortEntries(items));
       setStatusText(
-        linkedToTable
-          ? items.length > 0
-            ? `c8table 已同步 ${items.length} 条事件`
-            : "c8table 暂无事件"
-          : "请保存 c8table API token",
+        remoteConfigured
+          ? `${backendLabel} 已同步 ${items.length} 条事件`
+          : `本地备用库 ${items.length} 条事件`,
       );
     },
-    [linkedToTable, repository],
+    [backendLabel, remoteConfigured, repository],
   );
 
   useEffect(() => {
@@ -183,7 +194,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     let alive = true;
     const load = async (silent = false) => {
       if (!silent) {
-        setStatusText(linkedToTable ? "正在读取 c8table" : "请保存 c8table API token");
+        setStatusText(remoteConfigured ? `正在读取 ${backendLabel}` : "正在读取本地备用库");
       }
       repository
         .list()
@@ -193,11 +204,9 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
         }
         setEntries(sortEntries(items));
         setStatusText(
-          linkedToTable
-            ? items.length > 0
-              ? `c8table 已同步 ${items.length} 条事件`
-              : "c8table 暂无事件"
-            : "请保存 c8table API token",
+            remoteConfigured
+              ? `${backendLabel} 已同步 ${items.length} 条事件`
+              : `本地备用库 ${items.length} 条事件`,
         );
       })
       .catch((error) => {
@@ -208,14 +217,14 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
       });
     };
     void load(false);
-    const interval = linkedToTable ? window.setInterval(() => void load(true), 15_000) : undefined;
+    const interval = remoteConfigured ? window.setInterval(() => void load(true), 15_000) : undefined;
     return () => {
       alive = false;
       if (interval) {
         window.clearInterval(interval);
       }
     };
-  }, [linkedToTable, repository]);
+  }, [backendLabel, remoteConfigured, repository]);
 
   async function prepareQuickEntry(text: string) {
     const localDraft = parseQuickEntry(text, today, unitProfiles);
@@ -242,7 +251,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
         setEntries((current) => sortEntries([saved, ...current]));
       }
       setDrawer({ open: false, date: draft.date });
-      setStatusText("事件已写入 c8table");
+      setStatusText(remoteConfigured ? `事件已写入 ${backendLabel}` : "事件已保存到本地备用库");
       await refreshEntries(true);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "保存失败");
@@ -263,7 +272,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
       );
       setEntries((current) => current.filter((item) => item.id !== entry.id));
       setDrawer({ open: false, date: entry.date });
-      setStatusText("事件已从 c8table 删除");
+      setStatusText(remoteConfigured ? `事件已从 ${backendLabel} 删除` : "事件已从本地备用库删除");
       await refreshEntries(true);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "删除失败");
@@ -296,6 +305,16 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
 
   function clearToken() {
     saveStoredTeableToken("", storage);
+    setTokenRevision((current) => current + 1);
+  }
+
+  function saveProvider(provider: RepositoryProvider) {
+    saveStoredRepositoryProvider(provider, storage);
+    setTokenRevision((current) => current + 1);
+  }
+
+  function saveFeishuConfig(config: Partial<FeishuRuntimeConfig>) {
+    saveStoredFeishuConfig(config, storage);
     setTokenRevision((current) => current + 1);
   }
 
@@ -356,7 +375,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
       unitProfiles={unitProfiles}
       onViewChange={setActiveView}
       onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
-      quickAdd={<QuickAdd disabled={busy || !linkedToTable} onAdd={prepareQuickEntry} />}
+      quickAdd={<QuickAdd disabled={busy} onAdd={prepareQuickEntry} />}
       drawer={
         <EventDrawer
           open={drawer.open}
@@ -428,9 +447,12 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           unitProfiles={unitProfiles}
           aiParserConfig={aiParserConfig}
           oauthState={oauthState}
+          runtimeConfig={runtimeConfig}
           statusText={saveError ?? statusText}
+          onSaveProvider={saveProvider}
           onSaveToken={saveToken}
           onClearToken={clearToken}
+          onSaveFeishuConfig={saveFeishuConfig}
           onSaveOAuthClientId={saveOAuthClientId}
           onLoginWithOAuth={loginWithOAuth}
           onLogoutOAuth={logoutOAuth}
@@ -450,9 +472,12 @@ interface SettingsViewProps {
   unitProfiles: UnitProfileMap;
   aiParserConfig: AiParserConfig;
   oauthState: OAuthViewState;
+  runtimeConfig: ReturnType<typeof readRuntimeRepositoryConfig>;
   statusText: string;
+  onSaveProvider(provider: RepositoryProvider): void;
   onSaveToken(token: string): void;
   onClearToken(): void;
+  onSaveFeishuConfig(config: Partial<FeishuRuntimeConfig>): void;
   onSaveOAuthClientId(clientId: string): void;
   onLoginWithOAuth(): Promise<void>;
   onLogoutOAuth(): void;
@@ -468,9 +493,12 @@ function SettingsView({
   unitProfiles,
   aiParserConfig,
   oauthState,
+  runtimeConfig,
   statusText,
+  onSaveProvider,
   onSaveToken,
   onClearToken,
+  onSaveFeishuConfig,
   onSaveOAuthClientId,
   onLoginWithOAuth,
   onLogoutOAuth,
@@ -481,6 +509,10 @@ function SettingsView({
 }: SettingsViewProps) {
   const [token, setToken] = useState("");
   const [oauthClientId, setOauthClientId] = useState(oauthState.config.clientId ?? "");
+  const [feishuAccessToken, setFeishuAccessToken] = useState("");
+  const [feishuAppToken, setFeishuAppToken] = useState(runtimeConfig.feishu.appToken ?? "");
+  const [feishuTableId, setFeishuTableId] = useState(runtimeConfig.feishu.tableId ?? "");
+  const [feishuBaseUrl, setFeishuBaseUrl] = useState(runtimeConfig.feishu.baseUrl);
   const [aiToken, setAiToken] = useState("");
   const [aiBaseUrl, setAiBaseUrl] = useState(aiParserConfig.baseUrl);
   const [aiModel, setAiModel] = useState(aiParserConfig.model);
@@ -491,6 +523,12 @@ function SettingsView({
     setOauthClientId(oauthState.config.clientId ?? "");
   }, [oauthState.config.clientId]);
 
+  useEffect(() => {
+    setFeishuAppToken(runtimeConfig.feishu.appToken ?? "");
+    setFeishuTableId(runtimeConfig.feishu.tableId ?? "");
+    setFeishuBaseUrl(runtimeConfig.feishu.baseUrl);
+  }, [runtimeConfig.feishu.appToken, runtimeConfig.feishu.baseUrl, runtimeConfig.feishu.tableId]);
+
   function submitToken(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSaveToken(token);
@@ -500,6 +538,17 @@ function SettingsView({
   function submitOAuthClientId(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSaveOAuthClientId(oauthClientId);
+  }
+
+  function submitFeishuConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveFeishuConfig({
+      accessToken: feishuAccessToken.trim() || runtimeConfig.feishu.accessToken,
+      appToken: feishuAppToken,
+      tableId: feishuTableId,
+      baseUrl: feishuBaseUrl.trim() || DEFAULT_FEISHU_BASE_URL,
+    });
+    setFeishuAccessToken("");
   }
 
   function submitAiParser(event: FormEvent<HTMLFormElement>) {
@@ -523,11 +572,11 @@ function SettingsView({
       <div className="settingsGrid">
         <div>
           <strong>后端</strong>
-          <span>{mode === "teable" ? "c8table 已连接" : "请保存 API token"}</span>
+          <span>{backendModeLabel(mode)}</span>
         </div>
         <div>
           <strong>自动刷新</strong>
-          <span>每 15 秒读取 c8table</span>
+          <span>{mode === "local" ? "本地即时保存" : "每 15 秒读取远端表格"}</span>
         </div>
         <div>
           <strong>状态</strong>
@@ -535,11 +584,41 @@ function SettingsView({
         </div>
       </div>
       <div className="settingsSections">
+        <section className="settingsCard providerSettingsCard" aria-label="Backend provider">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">数据后端</p>
+              <h4>选择存储方式</h4>
+            </div>
+          </div>
+          <div className="providerPicker" role="group" aria-label="数据后端">
+            {([
+              ["local", "本地备用库", "不配置远端也能新增、编辑、删除。"],
+              ["teable", "c8table", "同步到 c8table 表格。"],
+              ["feishu", "飞书多维表格", "同步到飞书 bitable。"],
+            ] as const).map(([provider, label, description]) => (
+              <button
+                aria-pressed={mode === provider}
+                className={mode === provider ? "providerOption active" : "providerOption"}
+                key={provider}
+                type="button"
+                onClick={() => onSaveProvider(provider)}
+              >
+                <strong>{label}</strong>
+                <span>{description}</span>
+              </button>
+            ))}
+          </div>
+          <p className="settingsStatus">
+            本地备用库始终启用；选择远端后，应用会先保存本地，再尝试同步到对应多维表格。
+          </p>
+        </section>
+
         <section className="settingsCard" aria-label="c8table connection">
           <div className="settingsCardHeader">
             <div>
               <p className="eyebrow">c8table</p>
-              <h4>{mode === "teable" ? "已连接" : "未连接"}</h4>
+              <h4>{runtimeConfig.teableToken ? "已配置" : "未配置"}</h4>
             </div>
             <span>{today}</span>
           </div>
@@ -571,6 +650,73 @@ function SettingsView({
             </button>
           </form>
           <p className="settingsStatus">{statusText}</p>
+        </section>
+
+        <section className="settingsCard" aria-label="Feishu bitable connection">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">飞书多维表格</p>
+              <h4>
+                {runtimeConfig.feishu.accessToken && runtimeConfig.feishu.appToken && runtimeConfig.feishu.tableId
+                  ? "已配置"
+                  : "未配置"}
+              </h4>
+            </div>
+            <span>bitable</span>
+          </div>
+          <dl className="settingsDefinition">
+            <div>
+              <dt>Base</dt>
+              <dd>{runtimeConfig.feishu.baseUrl}</dd>
+            </div>
+            <div>
+              <dt>App</dt>
+              <dd>{runtimeConfig.feishu.appToken ?? "未设置"}</dd>
+            </div>
+            <div>
+              <dt>Table</dt>
+              <dd>{runtimeConfig.feishu.tableId ?? "未设置"}</dd>
+            </div>
+          </dl>
+          <form className="feishuConfigForm" onSubmit={submitFeishuConfig}>
+            <label>
+              <span>Access token</span>
+              <input
+                value={feishuAccessToken}
+                onChange={(event) => setFeishuAccessToken(event.currentTarget.value)}
+                type="password"
+                placeholder={runtimeConfig.feishu.accessToken ? "已保存，留空不变" : "tenant/user access token"}
+                aria-label="Feishu access token"
+              />
+            </label>
+            <label>
+              <span>App token</span>
+              <input
+                value={feishuAppToken}
+                onChange={(event) => setFeishuAppToken(event.currentTarget.value)}
+                placeholder="多维表格 app_token"
+                aria-label="Feishu app token"
+              />
+            </label>
+            <label>
+              <span>Table ID</span>
+              <input
+                value={feishuTableId}
+                onChange={(event) => setFeishuTableId(event.currentTarget.value)}
+                placeholder="数据表 table_id"
+                aria-label="Feishu table id"
+              />
+            </label>
+            <label>
+              <span>Base URL</span>
+              <input
+                value={feishuBaseUrl}
+                onChange={(event) => setFeishuBaseUrl(event.currentTarget.value)}
+                aria-label="Feishu base URL"
+              />
+            </label>
+            <button type="submit">保存并切换</button>
+          </form>
         </section>
 
         <section className="settingsCard" aria-label="c8table OAuth login">
@@ -712,6 +858,16 @@ function browserStorage(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+function backendModeLabel(mode: RepositoryMode): string {
+  if (mode === "teable") {
+    return "c8table";
+  }
+  if (mode === "feishu") {
+    return "飞书多维表格";
+  }
+  return "本地备用库";
 }
 
 function readStoredUnitProfiles(storage = browserStorage()): UnitProfileMap {

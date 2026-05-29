@@ -4,10 +4,11 @@ Last updated: 2026-05-29
 
 ## Current State
 
-DesktopCal now has a c8table-backed event layer. The React UI can create, edit, delete, complete,
-and quick add events; double-clicking a date opens the right-side event drawer. Events are read from
-and written to c8table through `TeableJsonEntryRepository`; the UI also polls c8table so table edits
-can flow back into every frontend without a manual sync step.
+DesktopCal now has a local-first event layer with optional c8table or Feishu Bitable sync. The
+React UI can create, edit, delete, complete, and quick add events; double-clicking a date opens the
+right-side event drawer. Events always write to the local IndexedDB backup first. When a remote
+backend is selected, `LocalFirstEntryRepository` syncs the same entries to c8table through
+`TeableJsonEntryRepository` or to Feishu Bitable through `FeishuBitableEntryRepository`.
 
 The default navigation is `常用视图`, which shows a rolling window from 3 days before today through
 11 days after today with larger day cards and denser event rows. `日历模式` keeps the month grid but
@@ -48,7 +49,9 @@ Current active change: `harness/changes/active/summary.md`
 - The repository creates structured c8table fields for 标题, 日期, 时间, 单位, 类型, 重要性, 完成,
   备注, 附件, 附件元数据, 本地ID, 创建时间, and 更新时间. Older JSON rows in `单行文本` are migrated
   into these fields and `单行文本` is rewritten as a readable title mirror.
-- Without a token, event writes are blocked instead of using local event fallback storage.
+- Feishu Bitable sync uses the official `/open-apis/bitable/v1/apps/:app_token/tables/:table_id`
+  records and fields APIs. The user supplies an access token, app token, and table ID locally.
+- Without a remote configuration, event writes stay fully functional in the local backup database.
 - The Tauri shell is back to a normal decorated, taskbar-visible window. Desktop wallpaper
   attachment is not part of the current runnable mode.
 - Android APK output: `apps/android/app/build/outputs/apk/debug/app-debug.apk`.
@@ -60,7 +63,7 @@ Current active change: `harness/changes/active/summary.md`
 ## Verification
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 6 files / 27 tests.
+- `npm test`: passed, 9 files / 38 tests.
 - `uv run --no-editable desktopcal test`: passed.
 - `uv run --no-editable desktopcal lint`: passed.
 - `uv run --no-editable desktopcal build`: passed and produced the Windows executable plus NSIS
@@ -76,7 +79,8 @@ Current active change: `harness/changes/active/summary.md`
 
 ## Next Recommended Step
 
-Run the desktop application and enter the Teable API token in the sidebar connection panel:
+Run the desktop application. It works immediately with the local backup database. Use settings to
+choose `本地备用库`, `c8table`, or `飞书多维表格`:
 
 ```powershell
 uv run --no-editable desktopcal dev

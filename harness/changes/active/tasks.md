@@ -20,4 +20,5 @@
 - [x] Convert time records into a dense current/future list board with collapsed completed history.
 - [x] Add standalone web and packaged-exe OAuth PKCE login and token refresh.
 - [x] Use the sidebar empty area for the nearest-event detail card.
+- [x] Add local-first storage with selectable c8table or Feishu Bitable sync.
 - [x] Run verification commands and update status.

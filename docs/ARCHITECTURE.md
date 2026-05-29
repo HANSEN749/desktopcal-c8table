@@ -20,8 +20,10 @@ flowchart LR
   Browser["Standalone Web"] --> Web
   Web --> Shared["@desktopcal/shared types"]
   Web --> Repo["EntryRepository"]
-  Repo --> Teable["c8table structured records"]
-  Repo --> IndexedDB["IndexedDB local data"]
+  Repo --> LocalFirst["LocalFirstEntryRepository"]
+  LocalFirst --> IndexedDB["IndexedDB local backup"]
+  LocalFirst --> Teable["c8table structured records"]
+  LocalFirst --> Feishu["Feishu Bitable records"]
   Tauri --> Web
   PyCLI --> Harness["ECL Harness"]
   Android["Android Companion APK"] -. syncs .-> Teable
@@ -35,7 +37,7 @@ flowchart LR
 | --- | --- | --- |
 | L0 | `packages/shared` | Domain types shared across UI and integration code |
 | L1 | `apps/web/src/domain` | Date grouping and UI-facing domain behavior |
-| L1 | `apps/web/src/repositories` | Entry repository interfaces, c8table structured records, local events, and local attachments |
+| L1 | `apps/web/src/repositories` | Entry repository interfaces, local-first backup, c8table records, Feishu Bitable records, and local attachments |
 | L2 | `apps/web/src/components` | React layout, month calendar, event drawer, upcoming list, and report preview |
 | L2 | `apps/web/src` | React app composition and interaction state |
 | L3 | `apps/desktop/src-tauri` | Native window shell and Tauri runtime |
@@ -52,19 +54,26 @@ sequenceDiagram
   participant Tauri as Tauri Shell
   participant UI as React UI
   participant Repo as EntryRepository
-  participant Teable as Teable
+  participant Local as Local IndexedDB
+  participant Teable as c8table / Feishu
   participant IDB as IndexedDB
 
   Dev->>UV: dev
   UV->>Tauri: npm run dev
   Tauri->>UI: load Vite dev URL
   UI->>Repo: list/create/update/delete Entry
-  Repo->>Teable: structured fields when token exists
-  Repo->>UI: block writes until local token exists
+  Repo->>Local: always save local backup
+  Repo->>Teable: sync selected remote when configured
+  Repo->>UI: return local data when remote is unavailable
   UI->>IDB: attachment Blob storage via LocalAttachmentRepository
 ```
 
-## 5 Teable Boundary
+## 5 Remote Backend Boundary
+
+`LocalFirstEntryRepository` is the runtime repository wrapper. It keeps the app usable without any
+remote credentials by writing to the local IndexedDB event database first. If c8table or Feishu is
+configured, it syncs local-only entries to the selected remote backend and refreshes the local cache
+from the remote table.
 
 c8table integration lives behind `EntryRepository`. `TeableJsonEntryRepository` stores one event per
 record at `https://c8table.com/api/table/tbl2wWI7diI2vs5anMs/record` with `fieldKeyType=name`.
@@ -78,9 +87,13 @@ Windows executable also support c8table OAuth 2.0 PKCE; OAuth access tokens are 
 local storage and refreshed with the stored refresh token. No token or OAuth secret is committed to
 git-tracked files.
 
-The frontend treats c8table as the event source of truth. Desktop, standalone web, and Android load
-records from the same table, write create/update/delete operations back to c8table, and poll for
-table-side changes so the table and all clients remain linked.
+Feishu Bitable integration also lives behind `EntryRepository`. `FeishuBitableEntryRepository` uses
+`https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id/records` for records
+and `/fields` for field creation. The access token, app token, and table ID are local runtime
+configuration and are not committed.
+
+Desktop and standalone web poll the selected remote table when configured. Android currently remains
+on the c8table companion path.
 
 ## 6 Desktop Window Boundary
 

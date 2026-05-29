@@ -43,14 +43,20 @@ verification must stay fast and stable. Use the explicit Android command when bu
 
 ## 4 Current Behavior
 
-The app uses an `EntryRepository` boundary. With either a locally configured c8table token or a
-c8table OAuth PKCE session, events are stored in structured c8table fields using
-`fieldKeyType=name`. The repository automatically creates the expected fields if they are missing
-and migrates older JSON rows from `单行文本` into those fields. Without a token, event writes are
-blocked so c8table remains the single event backend.
+The app uses an `EntryRepository` boundary. The default runtime is local-first: events are stored in
+IndexedDB even when no remote backend is configured. Settings can switch the remote sync target to
+c8table or Feishu Bitable.
 
-The frontend polls c8table periodically; direct edits in the table flow back to the UI without a
-manual sync step.
+With either a locally configured c8table token or a c8table OAuth PKCE session, events are stored in
+structured c8table fields using `fieldKeyType=name`. The repository automatically creates the
+expected fields if they are missing and migrates older JSON rows from `单行文本` into those fields.
+
+With Feishu Bitable selected, the app uses the Feishu Bitable records and fields APIs with a locally
+stored access token, app token, and table ID. Feishu fields are created when missing, and local-only
+events are pushed to Feishu once the backend becomes available.
+
+The frontend polls the selected remote backend periodically; direct edits in the table flow back to
+the UI without a manual sync step. If remote calls fail, the local backup remains usable.
 
 The main UI has three schedule surfaces: `常用视图` is the default rolling window from 3 days before
 today through 11 days after today, `日历模式` keeps the month grid with denser event text, and
@@ -75,6 +81,12 @@ Teable token options:
   in settings or with `VITE_TEABLE_OAUTH_CLIENT_ID`, then use the OAuth login button. The app uses
   PKCE and does not require a client secret in the browser.
 
+Feishu Bitable options:
+
+- In settings, choose `飞书多维表格`.
+- Save an access token, app token, and table ID. Tokens are runtime/local configuration only.
+- The default Feishu base URL is `https://open.feishu.cn`.
+
 The Vite development port defaults to `5600` because some Windows installations reserve the 5173
 range. It binds to `0.0.0.0` so the same web page can be opened from the local network. Override
 with `VITE_DEV_PORT` or `VITE_DEV_HOST` if needed.
@@ -86,5 +98,7 @@ with `VITE_DEV_PORT` or `VITE_DEV_HOST` if needed.
 - If WebView2 is missing, install the Evergreen WebView2 Runtime from Microsoft.
 - If c8table requests fail, confirm the local token is present and has permission to create fields
   and write records in table `tbl2wWI7diI2vs5anMs`.
+- If Feishu requests fail, confirm the access token has Bitable field and record read/write
+  permissions, and that the app token/table ID point to an editable table.
 - If `gradlew.bat` fails under this Chinese workspace path, use `apps\android\build-debug.ps1`; it
   calls the Gradle wrapper through Java directly.

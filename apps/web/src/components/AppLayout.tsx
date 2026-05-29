@@ -9,7 +9,7 @@ import {
 import { useMemo, type ReactNode } from "react";
 import { dayDiff } from "../domain/date";
 
-export type RepositoryMode = "teable" | "disconnected";
+export type RepositoryMode = "local" | "teable" | "feishu";
 export type AppView = "common" | "calendar" | "time" | "reports" | "settings";
 
 interface AppLayoutProps {

@@ -49,6 +49,17 @@ export class LocalEntryRepository implements EntryRepository {
     await this.db.entries.delete(id);
   }
 
+  async put(entry: Entry): Promise<void> {
+    await this.db.entries.put(entry);
+  }
+
+  async replace(previousId: string, entry: Entry): Promise<void> {
+    if (previousId !== entry.id) {
+      await this.db.entries.delete(previousId);
+    }
+    await this.db.entries.put(entry);
+  }
+
   close(): void {
     this.db.close();
   }
