@@ -22,6 +22,9 @@ export function groupUpcomingEntries(
 ): UpcomingGroup[] {
   const grouped = new Map<string, Entry[]>();
   for (const entry of entries) {
+    if (entry.completed) {
+      continue;
+    }
     const offset = dayDiff(today, entry.date);
     if (offset < 0 || offset > rangeDays) {
       continue;

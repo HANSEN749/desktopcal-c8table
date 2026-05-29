@@ -17,6 +17,7 @@ export interface EntryDraft {
   shape?: EventShape;
   kind?: EventKind;
   importance: Importance;
+  completed?: boolean;
   note?: string;
   attachments?: EntryAttachment[];
 }
@@ -65,6 +66,7 @@ export function createEntryFromDraft(
     shape: presentation.shape,
     kind,
     importance: draft.importance,
+    completed: draft.completed ?? false,
     note: normalizeOptionalText(draft.note),
     attachments: draft.attachments ?? [],
     createdAt: timestamp,
@@ -80,6 +82,7 @@ export function touchEntry(entry: Entry, timestamp = new Date().toISOString()): 
     note: normalizeOptionalText(entry.note),
     title: entry.title.trim(),
     shape: presentation.shape,
+    completed: entry.completed ?? false,
     updatedAt: timestamp,
   };
 }

@@ -74,7 +74,7 @@ export function AppLayout({
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Windows 桌面应用</p>
+            <p className="eyebrow">Windows / Web / Android 同步</p>
             <h2>日历、待办与周月报</h2>
           </div>
           {quickAdd}

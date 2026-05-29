@@ -49,6 +49,7 @@ function entryToDraft(entry: Entry): EntryDraft {
     time: entry.time,
     kind: entry.kind,
     importance: entry.importance,
+    completed: entry.completed ?? false,
     note: entry.note,
     attachments: entry.attachments,
   };
@@ -223,6 +224,18 @@ export function EventDrawer({
               </button>
             ))}
           </div>
+        </label>
+
+        <label>
+          <span>状态</span>
+          <label className="inlineCheckbox">
+            <input
+              checked={draft.completed ?? false}
+              onChange={(event) => setDraft({ ...draft, completed: event.currentTarget.checked })}
+              type="checkbox"
+            />
+            已完成
+          </label>
         </label>
 
         <label>

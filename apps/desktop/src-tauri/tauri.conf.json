@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm --workspace @desktopcal/web run dev",
     "beforeBuildCommand": "npm --workspace @desktopcal/web run build",
-    "devUrl": "http://127.0.0.1:5173",
+    "devUrl": "http://127.0.0.1:5600",
     "frontendDist": "../../web/dist"
   },
   "app": {

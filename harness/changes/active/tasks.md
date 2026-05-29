@@ -16,4 +16,7 @@
 - [x] Implement first Android c8table list and quick-create package.
 - [x] Build and locate the Android debug APK.
 - [x] Add macOS arm64 DMG packaging workflow.
+- [x] Add completed-state sync across shared types, c8table, web, and Android parsing.
+- [x] Convert time records into a dense current/future list board with collapsed completed history.
+- [x] Add standalone web OAuth PKCE login and token refresh.
 - [x] Run verification commands and update status.

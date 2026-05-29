@@ -24,6 +24,7 @@ data class MobileEntry(
   val unit: String,
   val kind: String,
   val importance: Int,
+  val completed: Boolean,
   val note: String,
 )
 
@@ -67,6 +68,7 @@ class TeableRepository(
         .put(FIELD_UNIT, draft.unit)
         .put(FIELD_KIND, draft.kind)
         .put(FIELD_IMPORTANCE, draft.importance)
+        .put(FIELD_COMPLETED, false)
         .put(FIELD_NOTE, JSONObject.NULL)
         .put(FIELD_ATTACHMENT_META, "[]")
         .put(FIELD_LOCAL_ID, UUID.randomUUID().toString())
@@ -92,6 +94,7 @@ class TeableRepository(
         unit = draft.unit,
         kind = draft.kind,
         importance = draft.importance,
+        completed = false,
         note = "",
       )
     }
@@ -152,6 +155,7 @@ class TeableRepository(
       unit = fieldText(fields.opt(FIELD_UNIT)) ?: UNIT_WORK,
       kind = fieldText(fields.opt(FIELD_KIND)) ?: KIND_EVENT,
       importance = fieldText(fields.opt(FIELD_IMPORTANCE))?.toIntOrNull()?.coerceIn(1, 5) ?: 3,
+      completed = fieldBoolean(fields.opt(FIELD_COMPLETED)),
       note = fieldText(fields.opt(FIELD_NOTE)).orEmpty(),
     )
   }
@@ -162,6 +166,14 @@ class TeableRepository(
       is String -> value.trim().ifBlank { null }
       is Number -> value.toString()
       else -> value.toString().trim().ifBlank { null }
+    }
+
+  private fun fieldBoolean(value: Any?): Boolean =
+    when (value) {
+      is Boolean -> value
+      is Number -> value.toInt() != 0
+      is String -> value.equals("true", ignoreCase = true) || value == "1" || value == "完成" || value == "已完成"
+      else -> false
     }
 
   private fun request(
@@ -220,6 +232,7 @@ private const val FIELD_TIME = "时间"
 private const val FIELD_UNIT = "单位"
 private const val FIELD_KIND = "类型"
 private const val FIELD_IMPORTANCE = "重要性"
+private const val FIELD_COMPLETED = "完成"
 private const val FIELD_NOTE = "备注"
 private const val FIELD_ATTACHMENTS = "附件"
 private const val FIELD_ATTACHMENT_META = "附件元数据"
@@ -239,6 +252,7 @@ private val requiredFields = listOf(
   RequiredField(FIELD_UNIT, "singleSelect", "desktopcal_unit", "单位/来源，决定月历显示形状", "singleLineText"),
   RequiredField(FIELD_KIND, "singleSelect", "desktopcal_kind", "事件或持续，决定空心/实心显示", "singleLineText"),
   RequiredField(FIELD_IMPORTANCE, "rating", "desktopcal_importance", "1-5 星重要性", "number"),
+  RequiredField(FIELD_COMPLETED, "checkbox", "desktopcal_completed", "事件是否已完成", "singleLineText"),
   RequiredField(FIELD_NOTE, "longText", "desktopcal_note", "备注"),
   RequiredField(FIELD_ATTACHMENTS, "attachment", "desktopcal_attachments", "事件附件", "longText"),
   RequiredField(FIELD_ATTACHMENT_META, "longText", "desktopcal_attachment_meta", "附件元数据备份"),

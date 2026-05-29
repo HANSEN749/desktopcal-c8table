@@ -71,6 +71,7 @@ const FIELD = {
   unit: "单位",
   kind: "类型",
   importance: "重要性",
+  completed: "完成",
   note: "备注",
   attachments: "附件",
   attachmentMeta: "附件元数据",
@@ -118,6 +119,13 @@ const REQUIRED_FIELDS: RequiredField[] = [
     dbFieldName: "desktopcal_importance",
     description: "1-5 星重要性",
     fallbackType: "number",
+  },
+  {
+    name: FIELD.completed,
+    type: "checkbox",
+    dbFieldName: "desktopcal_completed",
+    description: "事件是否已完成",
+    fallbackType: "singleLineText",
   },
   {
     name: FIELD.note,
@@ -327,6 +335,7 @@ export class TeableJsonEntryRepository implements EntryRepository {
       [FIELD.unit]: unitProfile.label,
       [FIELD.kind]: kindLabelById[entry.kind],
       [FIELD.importance]: entry.importance,
+      [FIELD.completed]: entry.completed ?? false,
       [FIELD.note]: entry.note ?? null,
       [FIELD.attachmentMeta]: JSON.stringify(entry.attachments),
       [FIELD.localId]: entry.localId,
@@ -382,6 +391,7 @@ export class TeableJsonEntryRepository implements EntryRepository {
       shape: presentation.shape,
       kind,
       importance: importanceFromField(fields[FIELD.importance]),
+      completed: completedFromField(fields[FIELD.completed]),
       note: textFromField(fields[FIELD.note]),
       attachments: attachmentsFromFields(fields[FIELD.attachments], fields[FIELD.attachmentMeta]),
       createdAt: isoFromField(fields[FIELD.createdAt]) ?? record.createdTime ?? now,
@@ -562,6 +572,14 @@ function importanceFromField(value: unknown): 1 | 2 | 3 | 4 | 5 {
     return number as 1 | 2 | 3 | 4 | 5;
   }
   return 3;
+}
+
+function completedFromField(value: unknown): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  const text = textFromField(value)?.toLowerCase();
+  return text === "true" || text === "yes" || text === "1" || text === "已完成" || text === "完成";
 }
 
 function attachmentsFromFields(

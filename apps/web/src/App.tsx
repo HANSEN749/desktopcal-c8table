@@ -14,6 +14,7 @@ import { EventDrawer } from "./components/EventDrawer";
 import { MonthCalendar } from "./components/MonthCalendar";
 import { QuickAdd } from "./components/QuickAdd";
 import { ReportPreview } from "./components/ReportPreview";
+import { TimeRecordBoard } from "./components/TimeRecordBoard";
 import { UpcomingList } from "./components/UpcomingList";
 import { addDays, toDateKey } from "./domain/date";
 import { groupUpcomingEntries } from "./domain/upcoming";
@@ -21,6 +22,16 @@ import type { AttachmentRepository, EntryDraft, EntryRepository } from "./reposi
 import { sortEntries } from "./repositories/EntryRepository";
 import { LocalAttachmentRepository } from "./repositories/LocalAttachmentRepository";
 import { DEFAULT_TEABLE_BASE_URL, DEFAULT_TEABLE_TABLE_ID } from "./repositories/TeableJsonEntryRepository";
+import {
+  beginTeableOAuthLogin,
+  clearTeableOAuthSession,
+  completeTeableOAuthCallback,
+  ensureFreshTeableOAuthToken,
+  readTeableOAuthConfig,
+  readTeableOAuthSession,
+  saveStoredOAuthClientId,
+  type TeableOAuthConfig,
+} from "./repositories/TeableOAuth";
 import {
   createDefaultEntryRepository,
   readRuntimeRepositoryConfig,
@@ -52,6 +63,12 @@ interface AiParserConfig {
   model: string;
 }
 
+interface OAuthViewState {
+  config: TeableOAuthConfig;
+  connected: boolean;
+  expiresAt?: number;
+}
+
 export interface AppProps {
   entryRepository?: EntryRepository;
   attachmentRepository?: AttachmentRepository;
@@ -65,6 +82,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     () => readRuntimeRepositoryConfig(storage),
     [storage, tokenRevision],
   );
+  const oauthState = useMemo(() => readOAuthViewState(storage), [storage, tokenRevision]);
   const attachments = useMemo(
     () => attachmentRepository ?? new LocalAttachmentRepository(),
     [attachmentRepository],
@@ -114,6 +132,51 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     },
     [linkedToTable, repository],
   );
+
+  useEffect(() => {
+    let alive = true;
+    completeTeableOAuthCallback(oauthState.config, storage)
+      .then((result) => {
+        if (!alive || result === "none") {
+          return;
+        }
+        setStatusText("c8table OAuth 已连接");
+        setTokenRevision((current) => current + 1);
+      })
+      .catch((error) => {
+        if (alive) {
+          setSaveError(error instanceof Error ? error.message : "c8table OAuth 登录失败");
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [oauthState.config, storage]);
+
+  useEffect(() => {
+    if (!oauthState.config.clientId) {
+      return undefined;
+    }
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const token = await ensureFreshTeableOAuthToken(oauthState.config, storage);
+        if (alive && token) {
+          setTokenRevision((current) => current + 1);
+        }
+      } catch (error) {
+        if (alive) {
+          setSaveError(error instanceof Error ? error.message : "c8table OAuth 刷新失败");
+        }
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 8 * 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, [oauthState.config, storage]);
 
   useEffect(() => {
     let alive = true;
@@ -208,6 +271,23 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     }
   }
 
+  async function toggleEntryCompleted(entry: Entry) {
+    setBusy(true);
+    setSaveError(undefined);
+    try {
+      const saved = await repository.update({ ...entry, completed: !(entry.completed ?? false) });
+      setEntries((current) =>
+        sortEntries(current.map((item) => (item.id === saved.id ? saved : item))),
+      );
+      setStatusText(saved.completed ? "事件已标记完成" : "事件已恢复未完成");
+      await refreshEntries(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "更新完成状态失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function saveToken(token: string) {
     saveStoredTeableToken(token, storage);
     setTokenRevision((current) => current + 1);
@@ -216,6 +296,26 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   function clearToken() {
     saveStoredTeableToken("", storage);
     setTokenRevision((current) => current + 1);
+  }
+
+  function saveOAuthClientId(clientId: string) {
+    saveStoredOAuthClientId(clientId, storage);
+    setTokenRevision((current) => current + 1);
+  }
+
+  async function loginWithOAuth() {
+    setSaveError(undefined);
+    try {
+      await beginTeableOAuthLogin(oauthState.config, storage);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "c8table OAuth 登录失败");
+    }
+  }
+
+  function logoutOAuth() {
+    clearTeableOAuthSession(storage);
+    setTokenRevision((current) => current + 1);
+    setStatusText("c8table OAuth 已退出");
   }
 
   function updateUnitProfileLabel(id: EntryUnitId, label: string) {
@@ -306,7 +406,13 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
       ) : null}
 
       {activeView === "time" ? (
-        <TimeRecordView entries={entries} onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })} />
+        <TimeRecordBoard
+          entries={entries}
+          today={today}
+          unitProfiles={unitProfiles}
+          onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+          onToggleCompleted={toggleEntryCompleted}
+        />
       ) : null}
 
       {activeView === "reports" ? <ReportPreview entries={entries} today={today} /> : null}
@@ -317,9 +423,13 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           today={today}
           unitProfiles={unitProfiles}
           aiParserConfig={aiParserConfig}
+          oauthState={oauthState}
           statusText={saveError ?? statusText}
           onSaveToken={saveToken}
           onClearToken={clearToken}
+          onSaveOAuthClientId={saveOAuthClientId}
+          onLoginWithOAuth={loginWithOAuth}
+          onLogoutOAuth={logoutOAuth}
           onSaveAiParserConfig={saveAiParserConfig}
           onClearAiParserToken={clearAiParserToken}
           onUnitProfileLabelChange={updateUnitProfileLabel}
@@ -330,43 +440,18 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   );
 }
 
-interface TimeRecordViewProps {
-  entries: Entry[];
-  onEditEntry(entry: Entry): void;
-}
-
-function TimeRecordView({ entries, onEditEntry }: TimeRecordViewProps) {
-  return (
-    <section className="panel fullPanel">
-      <div className="paneHeader">
-        <div>
-          <p className="eyebrow">时间记录</p>
-          <h3>全部事件</h3>
-        </div>
-      </div>
-      <div className="recordTable">
-        {entries.map((entry) => (
-          <button className="recordTableRow" key={entry.id} type="button" onClick={() => onEditEntry(entry)}>
-            <span>{entry.date}</span>
-            <span>{entry.time ?? "--:--"}</span>
-            <strong>{entry.title}</strong>
-            <span>{"★".repeat(entry.importance)}</span>
-          </button>
-        ))}
-        {entries.length === 0 ? <p className="emptyState">c8table 暂无事件</p> : null}
-      </div>
-    </section>
-  );
-}
-
 interface SettingsViewProps {
   mode: RepositoryMode;
   today: string;
   unitProfiles: UnitProfileMap;
   aiParserConfig: AiParserConfig;
+  oauthState: OAuthViewState;
   statusText: string;
   onSaveToken(token: string): void;
   onClearToken(): void;
+  onSaveOAuthClientId(clientId: string): void;
+  onLoginWithOAuth(): Promise<void>;
+  onLogoutOAuth(): void;
   onSaveAiParserConfig(config: AiParserConfig): void;
   onClearAiParserToken(): void;
   onUnitProfileLabelChange(id: EntryUnitId, label: string): void;
@@ -378,24 +463,38 @@ function SettingsView({
   today,
   unitProfiles,
   aiParserConfig,
+  oauthState,
   statusText,
   onSaveToken,
   onClearToken,
+  onSaveOAuthClientId,
+  onLoginWithOAuth,
+  onLogoutOAuth,
   onSaveAiParserConfig,
   onClearAiParserToken,
   onUnitProfileLabelChange,
   onResetUnitProfiles,
 }: SettingsViewProps) {
   const [token, setToken] = useState("");
+  const [oauthClientId, setOauthClientId] = useState(oauthState.config.clientId ?? "");
   const [aiToken, setAiToken] = useState("");
   const [aiBaseUrl, setAiBaseUrl] = useState(aiParserConfig.baseUrl);
   const [aiModel, setAiModel] = useState(aiParserConfig.model);
   const units = Object.values(unitProfiles);
 
+  useEffect(() => {
+    setOauthClientId(oauthState.config.clientId ?? "");
+  }, [oauthState.config.clientId]);
+
   function submitToken(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSaveToken(token);
     setToken("");
+  }
+
+  function submitOAuthClientId(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveOAuthClientId(oauthClientId);
   }
 
   function submitAiParser(event: FormEvent<HTMLFormElement>) {
@@ -467,6 +566,45 @@ function SettingsView({
             </button>
           </form>
           <p className="settingsStatus">{statusText}</p>
+        </section>
+
+        <section className="settingsCard" aria-label="c8table OAuth login">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">网页登录</p>
+              <h4>{oauthState.connected ? "OAuth 已连接" : oauthState.config.clientId ? "OAuth 可登录" : "缺少 Client ID"}</h4>
+            </div>
+            <span>PKCE</span>
+          </div>
+          <dl className="settingsDefinition">
+            <div>
+              <dt>授权</dt>
+              <dd>c8table OAuth，多端共用同一张表</dd>
+            </div>
+            <div>
+              <dt>状态</dt>
+              <dd>
+                {oauthState.connected && oauthState.expiresAt
+                  ? `已连接，${new Date(oauthState.expiresAt).toLocaleTimeString()} 前刷新`
+                  : "未连接"}
+              </dd>
+            </div>
+          </dl>
+          <form className="settingsTokenForm oauthClientForm" onSubmit={submitOAuthClientId}>
+            <input
+              aria-label="Teable OAuth Client ID"
+              onChange={(event) => setOauthClientId(event.currentTarget.value)}
+              placeholder="OAuth Client ID"
+              value={oauthClientId}
+            />
+            <button type="submit">保存</button>
+            <button disabled={!oauthState.config.clientId} type="button" onClick={() => void onLoginWithOAuth()}>
+              登录
+            </button>
+          </form>
+          <button className="smallTextButton" disabled={!oauthState.connected} type="button" onClick={onLogoutOAuth}>
+            退出 OAuth
+          </button>
         </section>
 
         <section className="settingsCard" aria-label="AI quick parser">
@@ -606,6 +744,16 @@ function saveStoredAiParserConfig(config: AiParserConfig, storage = browserStora
   }
   storage.setItem(AI_PARSER_BASE_URL_STORAGE_KEY, config.baseUrl.trim() || DEFAULT_AI_PARSER_BASE_URL);
   storage.setItem(AI_PARSER_MODEL_STORAGE_KEY, config.model.trim() || DEFAULT_AI_PARSER_MODEL);
+}
+
+function readOAuthViewState(storage = browserStorage()): OAuthViewState {
+  const config = readTeableOAuthConfig(storage);
+  const session = readTeableOAuthSession(storage);
+  return {
+    config,
+    connected: Boolean(session && session.refreshExpiresAt > Date.now()),
+    expiresAt: session?.expiresAt,
+  };
 }
 
 function mergeUnitProfiles(

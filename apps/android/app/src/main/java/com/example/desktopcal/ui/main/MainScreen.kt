@@ -217,6 +217,9 @@ private fun EntryRow(entry: MobileEntry) {
       Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         Text(markerFor(entry.unit, entry.kind), color = MaterialTheme.colorScheme.primary)
         Text(entry.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (entry.completed) {
+          Text("已完成", style = MaterialTheme.typography.bodySmall)
+        }
         Text("L${entry.importance}", style = MaterialTheme.typography.bodySmall)
       }
       Text(
@@ -251,8 +254,8 @@ fun MainScreenPreview() {
         lastSyncText = "已同步 2 条",
         draftDate = todayKey(),
         entries = listOf(
-          MobileEntry("1", "中央巡检", todayKey(), "15:30", "单位", KIND_DURATION, 5, ""),
-          MobileEntry("2", "组会", todayKey(), "09:00", "科研", KIND_EVENT, 3, "带材料"),
+          MobileEntry("1", "中央巡检", todayKey(), "15:30", "单位", KIND_DURATION, 5, false, ""),
+          MobileEntry("2", "组会", todayKey(), "09:00", "科研", KIND_EVENT, 3, false, "带材料"),
         ),
       ),
       onTokenChange = {},

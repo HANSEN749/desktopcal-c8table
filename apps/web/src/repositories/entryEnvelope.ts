@@ -28,6 +28,7 @@ export interface EntryEnvelope {
   shape: EventShape;
   kind: EventKind;
   importance: Importance;
+  completed?: boolean;
   note?: string;
   attachments: EntryAttachment[];
   createdAt: string;
@@ -155,6 +156,7 @@ export function entryToEnvelope(entry: Entry): EntryEnvelope {
     shape: entry.shape,
     kind: entry.kind,
     importance: entry.importance,
+    completed: entry.completed ?? false,
     note: entry.note,
     attachments: entry.attachments,
     createdAt: entry.createdAt,
@@ -179,6 +181,7 @@ export function envelopeToEntry(recordId: string, value: unknown, fallbackDate: 
     shape: presentation.shape,
     kind: coerceKind(value.kind) ?? "event",
     importance: isImportance(value.importance) ? value.importance : 3,
+    completed: typeof value.completed === "boolean" ? value.completed : false,
     note: optionalText(value.note),
     attachments: attachmentsFromUnknown(value.attachments),
     createdAt: isoText(value.createdAt, now),
@@ -222,6 +225,7 @@ export function parseTeableRecord(record: TeableRecord, fallbackDate: string): E
     shape: getEntryUnitProfile("other").shape,
     kind: "event",
     importance: 1,
+    completed: false,
     attachments: [],
     createdAt: now,
     updatedAt: now,

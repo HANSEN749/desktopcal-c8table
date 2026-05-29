@@ -42,6 +42,9 @@ export function CommonScheduleView({
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const entry of sortEntries(entries)) {
+      if (entry.completed) {
+        continue;
+      }
       const offset = dayDiff(today, entry.date);
       if (offset < -3 || offset > 11) {
         continue;

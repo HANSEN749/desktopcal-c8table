@@ -108,6 +108,34 @@ describe("App event interactions", () => {
     expect(screen.queryByText("范围外旧事项")).not.toBeInTheDocument();
   });
 
+  it("organizes many time records by pending groups with completed items collapsed", async () => {
+    const today = toDateKey(new Date());
+    const entries = [
+      makeEntry({ id: "low", localId: "low", title: "低优先级", date: today, time: "08:00", importance: 1 }),
+      makeEntry({ id: "high", localId: "high", title: "高优先级", date: today, importance: 5 }),
+      makeEntry({ id: "done", localId: "done", title: "已完成事项", date: today, completed: true }),
+      ...Array.from({ length: 11 }, (_, index) =>
+        makeEntry({
+          id: `bulk-${index}`,
+          localId: `bulk-${index}`,
+          title: `批量事项 ${index + 1}`,
+          date: today,
+          importance: 3,
+        }),
+      ),
+    ];
+    render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByText("高优先级");
+    fireEvent.click(screen.getByRole("button", { name: "时间记录" }));
+
+    expect(await screen.findByRole("heading", { name: "当前与后续" })).toBeInTheDocument();
+    expect(screen.getByText("还有 3 条，展开全部")).toBeInTheDocument();
+    expect(screen.queryByText("已完成事项")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /已完成 \/ 历史/ }));
+    expect(screen.getByText("已完成事项")).toBeInTheDocument();
+  });
+
   it("parses quick add text and opens the drawer for confirmation", async () => {
     const today = toDateKey(new Date());
     const tomorrow = new Date(`${today}T00:00:00`);

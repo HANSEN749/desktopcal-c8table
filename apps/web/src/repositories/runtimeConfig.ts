@@ -7,6 +7,7 @@ import {
   TeableJsonEntryRepository,
   type TeableJsonEntryRepositoryOptions,
 } from "./TeableJsonEntryRepository";
+import { readFreshOAuthAccessToken } from "./TeableOAuth";
 
 export const TEABLE_TOKEN_STORAGE_KEY = "desktopcal.teable.token";
 
@@ -29,6 +30,11 @@ function envToken(): string | undefined {
   return env?.VITE_TEABLE_TOKEN?.trim() || undefined;
 }
 
+function envBaseUrl(): string | undefined {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+  return env?.VITE_TEABLE_BASE_URL?.trim() || undefined;
+}
+
 export function readStoredTeableToken(storage = browserStorage()): string | undefined {
   return storage?.getItem(TEABLE_TOKEN_STORAGE_KEY)?.trim() || undefined;
 }
@@ -47,8 +53,8 @@ export function saveStoredTeableToken(token: string, storage = browserStorage())
 
 export function readRuntimeRepositoryConfig(storage = browserStorage()): RuntimeRepositoryConfig {
   return {
-    token: readStoredTeableToken(storage) ?? envToken(),
-    baseUrl: DEFAULT_TEABLE_BASE_URL,
+    token: readStoredTeableToken(storage) ?? readFreshOAuthAccessToken(storage) ?? envToken(),
+    baseUrl: envBaseUrl() ?? DEFAULT_TEABLE_BASE_URL,
     tableId: DEFAULT_TEABLE_TABLE_ID,
   };
 }

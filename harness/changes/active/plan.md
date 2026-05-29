@@ -13,6 +13,9 @@
 - Build a first Android debug APK with token storage, c8table list, and quick create.
 - Add a macOS arm64 GitHub Actions packaging workflow for DMG artifacts because local Windows cannot
   produce a reliable Tauri macOS DMG.
+- Add completed-state sync and convert `时间记录` into a high-density current/future list board.
+- Add standalone web OAuth PKCE login so browser clients can use c8table OAuth access tokens instead
+  of manually entered API tokens.
 
 ## Validation
 

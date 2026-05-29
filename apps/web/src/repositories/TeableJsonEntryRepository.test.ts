@@ -174,6 +174,7 @@ describe("TeableJsonEntryRepository", () => {
       "单位",
       "类型",
       "重要性",
+      "完成",
       "备注",
       "附件",
       "附件元数据",
@@ -188,6 +189,7 @@ describe("TeableJsonEntryRepository", () => {
       标题: "旧 JSON 事件",
       类型: "持续",
       重要性: 3,
+      完成: false,
     });
   });
 

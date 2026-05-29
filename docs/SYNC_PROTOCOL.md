@@ -30,6 +30,7 @@ Required core fields:
 - `unit`.
 - `kind`: `event` or `duration`.
 - `importance`: 1-5.
+- `completed`: optional boolean; absent means `false`.
 - `attachments`.
 - `createdAt`.
 - `updatedAt`.
@@ -118,6 +119,8 @@ Device-local pointer fields are optional and client-specific:
 ## Security Rules
 
 - API tokens stay local to each device.
+- Standalone web OAuth uses Teable/c8table OAuth 2.0 PKCE. Browser clients store access and refresh
+  tokens locally and never store a client secret.
 - Tokens must not be written into git-tracked files.
 - Device ids are identifiers, not authentication secrets.
 - Recovery codes, GitHub tokens, and c8table tokens are outside the sync protocol.

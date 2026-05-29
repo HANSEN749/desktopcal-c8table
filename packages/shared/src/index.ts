@@ -44,6 +44,7 @@ export interface Entry {
   shape: EventShape;
   kind: EventKind;
   importance: Importance;
+  completed?: boolean;
   note?: string;
   attachments: EntryAttachment[];
   createdAt: string;

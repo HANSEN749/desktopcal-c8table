@@ -731,31 +731,174 @@ input:disabled {
   overflow: hidden;
 }
 
-.recordTable {
+.timeBoard {
   display: grid;
-  gap: 8px;
-  padding: 0 18px 18px;
+  grid-template-rows: auto auto 1fr;
 }
 
-.recordTableRow {
-  display: grid;
-  grid-template-columns: 110px 62px minmax(0, 1fr) 92px;
+.timeBoardHeader {
+  align-items: start;
+}
+
+.timeBoardTools {
+  display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 38px;
-  border: 1px solid #e7ecea;
+  gap: 8px;
+}
+
+.dateFilter {
+  width: 142px;
+  height: 34px;
+  border: 1px solid #d8dfdd;
   border-radius: 8px;
+  padding: 0 9px;
+  background: white;
+}
+
+.dateFilter.active {
+  border-color: #1f7a68;
+  box-shadow: inset 0 0 0 1px #1f7a68;
+}
+
+.timeBoardSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border-top: 1px solid #e7ecea;
+  border-bottom: 1px solid #e7ecea;
+  padding: 8px 14px;
+  color: #6f7a80;
+  font-size: 12px;
+}
+
+.timeBoardSummary strong {
+  color: #1f7a68;
+  font-size: 20px;
+}
+
+.timeGroupList {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.timeGroup {
+  overflow: hidden;
+  border: 1px solid #e2e9e6;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.timeGroupHeader {
+  display: grid;
+  grid-template-columns: 22px minmax(120px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  border: 0;
   padding: 0 10px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(31, 122, 104, 0.05);
   color: #202124;
   text-align: left;
 }
 
-.recordTableRow strong,
-.recordTableRow span {
+.timeGroupHeader span,
+.timeGroupHeader b {
+  color: #1f7a68;
+}
+
+.timeGroupHeader em {
+  overflow: hidden;
+  color: #6f7a80;
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeRows {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+.timeRecordRow {
+  display: grid;
+  grid-template-columns: 24px 24px 94px 54px minmax(0, 1fr) 54px 24px 34px auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  border-radius: 7px;
+  padding: 0 6px;
+  color: #202124;
+  outline: none;
+}
+
+.timeRecordRow:hover,
+.timeRecordRow:focus-visible {
+  background: rgba(31, 122, 104, 0.08);
+}
+
+.timeRecordRow.completed {
+  color: #7d8783;
+}
+
+.timeRecordRow.completed strong {
+  text-decoration: line-through;
+}
+
+.doneToggle {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #c7d3cf;
+  border-radius: 6px;
+  padding: 0;
+  background: white;
+  color: #1f7a68;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.doneToggle.active {
+  border-color: #1f7a68;
+  background: #1f7a68;
+  color: white;
+}
+
+.timeRecordDate,
+.timeRecordTime,
+.timeRecordRow .unitLabel,
+.timeRecordRow .kind,
+.timeRecordRow .importance,
+.timeRecordRow strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.timeRecordDate,
+.timeRecordTime {
+  color: #6f7a80;
+  font-size: 12px;
+}
+
+.timeRecordRow strong {
+  font-size: 13px;
+}
+
+.timeMoreButton {
+  justify-self: start;
+  min-height: 30px;
+  border: 1px solid #c1ceca;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: white;
+  color: #1f7a68;
 }
 
 .settingsGrid {
@@ -1175,6 +1318,19 @@ input:disabled {
   margin: 0;
   border: 0;
   padding: 0;
+}
+
+.drawerForm .inlineCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  color: #202124;
+}
+
+.drawerForm .inlineCheckbox input {
+  width: 18px;
+  height: 18px;
 }
 
 .shapePicker {

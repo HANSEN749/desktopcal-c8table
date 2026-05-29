@@ -2,10 +2,11 @@
 
 ## 1 Overview
 
-DesktopCal is a desktop-first calendar and time-recording tool with an Android companion package.
-The current runnable desktop product uses Tauri 2 for the Windows shell, React + TypeScript for the
-UI, shared TypeScript types for domain contracts, repository abstractions for event persistence, and
-a Python CLI managed by uv as the single human-facing desktop command surface.
+DesktopCal is a desktop-first calendar and time-recording tool with a standalone web surface and an
+Android companion package. The runnable Windows product uses Tauri 2 for the shell, React +
+TypeScript for the UI, shared TypeScript types for domain contracts, repository abstractions for
+event persistence, and a Python CLI managed by uv as the single human-facing desktop command
+surface.
 
 ## 2 System Shape
 
@@ -16,6 +17,7 @@ flowchart LR
   PyCLI --> NPM["npm workspace commands"]
   NPM --> Web["React/Vite UI"]
   NPM --> Tauri["Tauri 2 Windows Shell"]
+  Browser["Standalone Web"] --> Web
   Web --> Shared["@desktopcal/shared types"]
   Web --> Repo["EntryRepository"]
   Repo --> Teable["c8table structured records"]
@@ -66,17 +68,18 @@ sequenceDiagram
 
 c8table integration lives behind `EntryRepository`. `TeableJsonEntryRepository` stores one event per
 record at `https://c8table.com/api/table/tbl2wWI7diI2vs5anMs/record` with `fieldKeyType=name`.
-On startup it ensures the table has structured fields for 标题, 日期, 时间, 单位, 类型, 重要性, 备注,
-附件, 附件元数据, 本地ID, 创建时间, and 更新时间. The older `单行文本` column is kept as a readable
-title mirror only; if it still contains a previous JSON envelope, the repository parses that row and
-PATCHes the structured columns back into c8table.
+On startup it ensures the table has structured fields for 标题, 日期, 时间, 单位, 类型, 重要性, 完成,
+备注, 附件, 附件元数据, 本地ID, 创建时间, and 更新时间. The older `单行文本` column is kept as a
+readable title mirror only; if it still contains a previous JSON envelope, the repository parses
+that row and PATCHes the structured columns back into c8table.
 
-API tokens are runtime/local configuration only. They are read from browser local storage or a local
-Vite environment value and are not committed to git-tracked files.
+Personal API tokens are runtime/local configuration only. The standalone web surface also supports
+c8table OAuth 2.0 PKCE; OAuth access tokens are stored in browser local storage and refreshed with
+the stored refresh token. No token or OAuth secret is committed to git-tracked files.
 
-The frontend treats c8table as the event source of truth. It loads records from c8table, writes
-create/update/delete operations back to c8table, and polls for table-side changes so the table and
-frontend remain linked.
+The frontend treats c8table as the event source of truth. Desktop, standalone web, and Android load
+records from the same table, write create/update/delete operations back to c8table, and poll for
+table-side changes so the table and all clients remain linked.
 
 ## 6 Desktop Window Boundary
 
