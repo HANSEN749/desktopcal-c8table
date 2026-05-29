@@ -240,6 +240,31 @@ describe("App event interactions", () => {
     expect(screen.getByLabelText("单位")).toHaveValue("work");
   });
 
+  it("parses Chinese numeral afternoon time locally", async () => {
+    const storage = window.localStorage;
+    storage.clear();
+    storage.setItem("desktopcal.unitProfiles.v1", JSON.stringify({ work: { label: "学校" } }));
+    render(
+      <App
+        entryRepository={new MemoryEntryRepository()}
+        attachmentRepository={makeAttachmentRepository()}
+        storage={storage}
+      />,
+    );
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.change(screen.getByLabelText("Quick add title"), {
+      target: { value: "5月30日下午三点 学校 东南大学课题" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+
+    expect(await screen.findByRole("heading", { name: "新增事件" })).toBeInTheDocument();
+    expect(screen.getByLabelText("日期")).toHaveValue(`${new Date().getFullYear()}-05-30`);
+    expect(screen.getByLabelText("时间")).toHaveValue("15:00");
+    expect(screen.getByLabelText("单位")).toHaveValue("work");
+    expect(screen.getByLabelText("标题")).toHaveValue("东南大学课题");
+  });
+
   it("extracts deadline, work unit, duration kind, high importance, and link note from long work notices", async () => {
     const storage = window.localStorage;
     storage.clear();

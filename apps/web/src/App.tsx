@@ -847,11 +847,17 @@ function parseQuickDate(text: string, today: string): { value: string; matched?:
 }
 
 function parseQuickTime(text: string): { value?: string; matched?: string } {
-  const match = text.match(/((?:上午|早上|早晨|下午|晚上|今晚|中午)?\s*([01]?\d|2[0-3])(?:[:：点]([0-5]\d)?)?(?:分)?)/);
+  const match = text.match(
+    /((?:上午|早上|早晨|下午|晚上|今晚|中午)?\s*([01]?\d|2[0-3]|[零〇一二两三四五六七八九十]{1,3})(?:[:：点]([0-5]\d|[零〇一二两三四五六七八九十]{1,3})?(半)?)(?:分)?)/,
+  );
   if (!match || !/[点:：]/.test(match[0])) {
     return {};
   }
-  let hour = Number(match[2]);
+  const parsedHour = parseTimeNumber(match[2]);
+  if (parsedHour === undefined || parsedHour > 23) {
+    return {};
+  }
+  let hour = parsedHour;
   const meridiem = match[1];
   if (/(下午|晚上|今晚)/.test(meridiem) && hour < 12) {
     hour += 12;
@@ -859,7 +865,45 @@ function parseQuickTime(text: string): { value?: string; matched?: string } {
   if (/中午/.test(meridiem) && hour < 11) {
     hour += 12;
   }
-  return { value: `${String(hour).padStart(2, "0")}:${match[3] ?? "00"}`, matched: match[1].trim() };
+  const minute = match[4] ? 30 : parseTimeNumber(match[3]) ?? 0;
+  if (minute > 59) {
+    return {};
+  }
+  return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, matched: match[1].trim() };
+}
+
+function parseTimeNumber(token: string | undefined): number | undefined {
+  if (!token) {
+    return undefined;
+  }
+  if (/^\d+$/.test(token)) {
+    return Number(token);
+  }
+  const digits: Record<string, number> = {
+    零: 0,
+    〇: 0,
+    一: 1,
+    二: 2,
+    两: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+  };
+  if (token === "十") {
+    return 10;
+  }
+  if (token.startsWith("十")) {
+    return 10 + (digits[token.slice(1)] ?? 0);
+  }
+  if (token.includes("十")) {
+    const [tens, ones] = token.split("十");
+    return (digits[tens] ?? 0) * 10 + (ones ? digits[ones] ?? 0 : 0);
+  }
+  return digits[token];
 }
 
 function parseQuickKind(text: string): { value: EntryDraft["kind"]; matched?: string } {
@@ -1000,7 +1044,7 @@ async function parseQuickEntryWithAi(
                 "字段必须是 title,date,time,unit,kind,importance,note。",
                 "date 必须是 YYYY-MM-DD；time 必须是 HH:mm 或 null；unit 必须从给定 units.id 中选。",
                 "date 抽取规则：'5月30日前/之前/截止前/请于5月30日前完成' 的日期就是当年 05-30，不要退回 today。",
-                "time 抽取规则：只有明确几点/HH:mm/上午下午时才填；没有明确时间填 null。",
+                "time 抽取规则：只有明确几点/HH:mm/上午下午时才填；没有明确时间填 null。中文数字也要解析，例如 下午三点=15:00，三点半=03:30，下午三点半=15:30。",
                 "unit 抽取规则：如果正文精确包含某个 units.label，选对应 id；含单位/公司/部门/领导/同事/集团/中建/八局/巡视/整改时优先 work。",
                 "kind 只能是 event 或 duration：event=某一时刻发生的会议/提醒；duration=持续推进/占用时间/任务/截止/完成/提交/更新/整改/归还。",
                 "importance 必须是 1-5：默认 3；重要/高优先级=4；紧急/非常重要/领导/保密/巡视/整改/集团/党组/中央/截止/及时=5。",
