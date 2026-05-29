@@ -517,18 +517,13 @@ function SettingsView({
           <div className="settingsCardHeader">
             <div>
               <p className="eyebrow">图标规则</p>
-              <h4>来源名称</h4>
+              <h4>分类名称</h4>
             </div>
             <button className="smallTextButton" type="button" onClick={onResetUnitProfiles}>
               恢复默认
             </button>
           </div>
           <div className="markerRuleList">
-            <div className="markerRuleHeader" aria-hidden="true">
-              <span>图标</span>
-              <span>来源名称</span>
-              <span>形状</span>
-            </div>
             {units.map((unit) => (
               <div className="markerRule" key={unit.id}>
                 <div className="markerPreview" aria-hidden="true">
@@ -536,13 +531,12 @@ function SettingsView({
                   <span className="marker level3">{getEntryMarkerSymbol(unit.shape, "duration")}</span>
                 </div>
                 <label className="markerNameField">
-                  <span>{entryUnitProfiles[unit.id].label}</span>
                   <input
                     value={unit.label}
                     onChange={(event) =>
                       onUnitProfileLabelChange(unit.id, event.currentTarget.value)
                     }
-                    aria-label={`${entryUnitProfiles[unit.id].label}来源名称`}
+                    aria-label={`${entryUnitProfiles[unit.id].label}名称`}
                   />
                 </label>
                 <span className="shapeName">{shapeLabels[unit.shape]}</span>

@@ -290,8 +290,8 @@ describe("App event interactions", () => {
 
     await screen.findByText("近期暂无事件");
     fireEvent.click(screen.getByRole("button", { name: "设置" }));
-    fireEvent.change(screen.getByLabelText("单位来源名称"), { target: { value: "工作" } });
-    expect(screen.getByText("形状")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("单位名称"), { target: { value: "工作" } });
+    expect(screen.getByRole("heading", { name: "分类名称" })).toBeInTheDocument();
     unmount();
 
     render(
@@ -300,6 +300,6 @@ describe("App event interactions", () => {
     await screen.findByText("近期暂无事件");
     fireEvent.click(screen.getByRole("button", { name: "设置" }));
 
-    expect(screen.getByLabelText("单位来源名称")).toHaveValue("工作");
+    expect(screen.getByLabelText("单位名称")).toHaveValue("工作");
   });
 });
