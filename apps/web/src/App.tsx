@@ -352,7 +352,10 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     <AppLayout
       activeView={activeView}
       entries={entries}
+      today={today}
+      unitProfiles={unitProfiles}
       onViewChange={setActiveView}
+      onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
       quickAdd={<QuickAdd disabled={busy || !linkedToTable} onAdd={prepareQuickEntry} />}
       drawer={
         <EventDrawer

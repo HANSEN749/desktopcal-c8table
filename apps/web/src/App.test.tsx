@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { toDateKey } from "./domain/date";
+import { addDays, toDateKey } from "./domain/date";
 import type { AttachmentRepository, EntryDraft, EntryRepository } from "./repositories/EntryRepository";
 import { createEntryFromDraft, touchEntry } from "./repositories/EntryRepository";
 import { makeEntry } from "./test/factories";
@@ -75,7 +75,7 @@ describe("App event interactions", () => {
     await waitFor(() => expect(repo.create).toHaveBeenCalled());
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ unit: "research" }));
     fireEvent.click(screen.getByRole("button", { name: "日历模式" }));
-    expect(await screen.findAllByText("新增组会")).toHaveLength(2);
+    expect((await screen.findAllByText("新增组会")).length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows a common schedule window with at least ten events in one day", async () => {
@@ -102,10 +102,72 @@ describe("App event interactions", () => {
 
     expect(await screen.findByText("前 3 天到后 11 天")).toBeInTheDocument();
     for (let index = 1; index <= 10; index += 1) {
-      expect(screen.getByText(`事项 ${index}`)).toBeInTheDocument();
+      expect(screen.getAllByText(`事项 ${index}`).length).toBeGreaterThan(0);
     }
     expect(screen.getByText("还有 2 条")).toBeInTheDocument();
     expect(screen.queryByText("范围外旧事项")).not.toBeInTheDocument();
+  });
+
+  it("uses the sidebar blank area for the nearest event details", async () => {
+    window.localStorage.clear();
+    const today = toDateKey(new Date());
+    const base = new Date(`${today}T00:00:00`);
+    const tomorrow = toDateKey(addDays(base, 1));
+    const entries = [
+      makeEntry({
+        id: "past",
+        localId: "past",
+        title: "昨天事项",
+        date: toDateKey(addDays(base, -1)),
+        importance: 5,
+      }),
+      makeEntry({
+        id: "done",
+        localId: "done",
+        title: "已完成明天事项",
+        date: tomorrow,
+        completed: true,
+      }),
+      makeEntry({
+        id: "nearest",
+        localId: "nearest",
+        title: "最近详情事件",
+        date: tomorrow,
+        time: "09:00",
+        unit: "research",
+        kind: "duration",
+        importance: 4,
+        note: "需要带材料",
+        attachments: [
+          {
+            id: "att-1",
+            storage: "local",
+            localBlobKey: "attachment:att-1",
+            name: "detail.png",
+            mime: "image/png",
+            size: 512,
+            createdAt: "2026-05-29T08:00:00.000Z",
+          },
+        ],
+      }),
+      makeEntry({
+        id: "later",
+        localId: "later",
+        title: "更晚事项",
+        date: toDateKey(addDays(base, 3)),
+      }),
+    ];
+    render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
+
+    const card = await screen.findByRole("button", { name: "编辑最近事件：最近详情事件" });
+    expect(card).toHaveTextContent("最近事件");
+    expect(card).toHaveTextContent(tomorrow);
+    expect(card).toHaveTextContent("需要带材料");
+    expect(card).toHaveTextContent("1 个附件");
+
+    fireEvent.click(card);
+    expect(await screen.findByRole("heading", { name: "编辑事件" })).toBeInTheDocument();
+    expect(screen.getByLabelText("标题")).toHaveValue("最近详情事件");
   });
 
   it("organizes many time records by pending groups with completed items collapsed", async () => {
@@ -126,7 +188,7 @@ describe("App event interactions", () => {
     ];
     render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
 
-    await screen.findByText("高优先级");
+    await screen.findAllByText("高优先级");
     fireEvent.click(screen.getByRole("button", { name: "时间记录" }));
 
     expect(await screen.findByRole("heading", { name: "当前与后续" })).toBeInTheDocument();
@@ -290,7 +352,7 @@ describe("App event interactions", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "保存" }).at(-1) as HTMLElement);
 
     await waitFor(() => expect(repo.update).toHaveBeenCalled());
-    expect(await screen.findAllByText("更新事件")).toHaveLength(1);
+    expect((await screen.findAllByText("更新事件")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows uploaded local attachment names in the drawer", async () => {

@@ -126,6 +126,111 @@ input:disabled {
   font-size: 12px;
 }
 
+.nearestEventPanel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  flex: 1;
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-align: left;
+}
+
+button.nearestEventPanel:hover,
+button.nearestEventPanel:focus-visible {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.nearestEventPanel.empty {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.nearestEventPanel.empty strong {
+  color: white;
+  font-size: 16px;
+}
+
+.nearestLabel,
+.nearestDate em,
+.nearestMeta,
+.nearestKind,
+.nearestNote,
+.nearestAttachment,
+.nearestEventPanel.empty span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nearestLabel {
+  font-weight: 700;
+}
+
+.nearestDate {
+  display: grid;
+  gap: 2px;
+}
+
+.nearestDate strong {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nearestDate em {
+  font-style: normal;
+}
+
+.nearestTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: white;
+  font-size: 17px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.nearestMeta {
+  display: grid;
+  grid-template-columns: 22px auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.nearestMeta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nearestMeta .marker {
+  width: 20px;
+  height: 20px;
+  font-size: 15px;
+}
+
+.nearestKind,
+.nearestAttachment {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.nearestNote {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
 .connectionPanel {
   display: grid;
   gap: 12px;

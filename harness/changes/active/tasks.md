@@ -19,4 +19,5 @@
 - [x] Add completed-state sync across shared types, c8table, web, and Android parsing.
 - [x] Convert time records into a dense current/future list board with collapsed completed history.
 - [x] Add standalone web and packaged-exe OAuth PKCE login and token refresh.
+- [x] Use the sidebar empty area for the nearest-event detail card.
 - [x] Run verification commands and update status.
