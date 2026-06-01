@@ -1,5 +1,5 @@
 import type { Entry, EntryUnitId, EntryUnitProfile } from "@desktopcal/shared";
-import { getEntryMarkerSymbol, kindShortLabels } from "@desktopcal/shared";
+import { getEntryMarkerSymbol } from "@desktopcal/shared";
 import { useMemo } from "react";
 import { addDays, dayDiff, toDateKey } from "../domain/date";
 import { sortEntries } from "../repositories/EntryRepository";
@@ -10,6 +10,7 @@ interface CommonScheduleViewProps {
   unitProfiles: Record<EntryUnitId, EntryUnitProfile>;
   onCreateAtDate(date: string): void;
   onEditEntry(entry: Entry): void;
+  onCompleteTodo(entry: Entry): void;
 }
 
 const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
@@ -33,6 +34,7 @@ export function CommonScheduleView({
   unitProfiles,
   onCreateAtDate,
   onEditEntry,
+  onCompleteTodo,
 }: CommonScheduleViewProps) {
   const days = useMemo(() => {
     const base = new Date(`${today}T00:00:00`);
@@ -42,7 +44,7 @@ export function CommonScheduleView({
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const entry of sortEntries(entries)) {
-      if (entry.completed) {
+      if (entry.completed && entry.category !== "todo") {
         continue;
       }
       const offset = dayDiff(today, entry.date);
@@ -95,23 +97,50 @@ export function CommonScheduleView({
                 {dayEntries.slice(0, 10).map((entry) => {
                   const unitProfile = unitProfiles[entry.unit] ?? unitProfiles.work;
                   return (
-                    <button
-                      className="commonEntry"
+                    <div
+                      className={entry.category === "todo" ? "commonEntryRow todoEntryRow" : "commonEntryRow"}
                       key={entry.id}
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEditEntry(entry);
-                      }}
                     >
-                      <span className={`marker level${entry.importance}`} title={unitProfile.label}>
-                        {getEntryMarkerSymbol(unitProfile.shape, entry.kind)}
-                      </span>
-                      <span className="commonTime">{entry.time ?? "--:--"}</span>
-                      <span className="commonMeta">{kindShortLabels[entry.kind]}</span>
-                      <span className="commonUnit">{unitProfile.label}</span>
-                      <strong>{entry.title}</strong>
-                    </button>
+                      <button
+                        className="commonEntry"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditEntry(entry);
+                        }}
+                      >
+                        <span
+                          className={
+                            entry.category === "todo"
+                              ? `marker todoMarker todoLevel${entry.importance}${entry.completed ? " completed" : ""}`
+                              : `marker level${entry.importance}`
+                          }
+                          title={entry.category === "todo" ? "代办" : unitProfile.label}
+                        >
+                          {entry.category === "todo"
+                            ? entry.completed
+                              ? "○"
+                              : "●"
+                            : getEntryMarkerSymbol(unitProfile.shape, entry.kind)}
+                        </span>
+                        <span className="commonTime">{entry.category === "todo" ? "" : entry.time ?? "--:--"}</span>
+                        <strong>{entry.title}</strong>
+                      </button>
+                      {entry.category === "todo" && !entry.completed ? (
+                        <button
+                          className="todoQuickDoneButton calendarTodoDone"
+                          type="button"
+                          title="设为已办"
+                          aria-label={`设为已办：${entry.title}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onCompleteTodo(entry);
+                          }}
+                        >
+                          ✓
+                        </button>
+                      ) : null}
+                    </div>
                   );
                 })}
                 {dayEntries.length > 10 ? <span className="commonMore">还有 {dayEntries.length - 10} 条</span> : null}

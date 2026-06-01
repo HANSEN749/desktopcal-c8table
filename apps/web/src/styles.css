@@ -107,13 +107,23 @@ input:disabled {
 }
 
 .miniStats {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: end;
+  display: flex;
+  align-items: center;
   gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
   border-radius: 8px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-align: left;
+}
+
+.databaseButton:hover,
+.databaseButton:focus-visible {
+  background: rgba(255, 255, 255, 0.15);
+  outline: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 .miniStats strong {
@@ -123,7 +133,8 @@ input:disabled {
 
 .miniStats span {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .nearestEventPanel {
@@ -140,6 +151,155 @@ input:disabled {
   background: rgba(255, 255, 255, 0.1);
   color: white;
   text-align: left;
+}
+
+.todoPanel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  flex: 1;
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-align: left;
+}
+
+.todoPanel.empty {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.todoPanel.empty strong,
+.todoPanelTitle {
+  color: white;
+  font-size: 16px;
+}
+
+.todoList {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.todoRowShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  align-items: start;
+  gap: 3px;
+  border-radius: 7px;
+}
+
+.todoRow {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  min-height: 58px;
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 4px;
+  background: transparent;
+  color: white;
+  text-align: left;
+}
+
+.todoRow:hover,
+.todoRow:focus-visible,
+.todoRowShell:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.todoRowBody,
+.todoRow em {
+  overflow: hidden;
+}
+
+.todoRow strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: white;
+  font-size: 14px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.todoRowBody {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.todoRowBody span,
+.todoRow em,
+.todoPanel.empty span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.todoRowBody span {
+  overflow: hidden;
+  max-width: 100%;
+  color: rgba(255, 255, 255, 0.46);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoRow em {
+  align-self: start;
+  padding-top: 2px;
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.todoQuickDoneButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: #78847f;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.todoQuickDoneButton:hover,
+.todoQuickDoneButton:focus-visible,
+.todoRowShell:hover .todoQuickDoneButton,
+.todoEntryRow:hover .todoQuickDoneButton {
+  opacity: 1;
+}
+
+.todoQuickDoneButton:hover,
+.todoQuickDoneButton:focus-visible {
+  border-color: #1f7a68;
+  background: rgba(31, 122, 104, 0.1);
+  color: #1f7a68;
+}
+
+.sidebarTodoDone {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.sidebarTodoDone:hover,
+.sidebarTodoDone:focus-visible {
+  border-color: white;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }
 
 button.nearestEventPanel:hover,
@@ -409,19 +569,19 @@ button.nearestEventPanel:focus-visible {
 .commonDayGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
   overflow: auto;
-  padding: 1px 2px 10px;
+  padding: 1px 2px 8px;
 }
 
 .commonDayCard {
   display: grid;
   grid-template-rows: auto 1fr;
-  min-height: 246px;
+  min-height: 226px;
   border: 1px solid #dfe6e3;
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 10px 26px rgba(22, 59, 53, 0.06);
   outline: none;
@@ -445,9 +605,9 @@ button.nearestEventPanel:focus-visible {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   border-bottom: 1px solid #e7ecea;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .commonDayHeader div {
@@ -481,34 +641,47 @@ button.nearestEventPanel:focus-visible {
 .commonEntryList {
   display: grid;
   align-content: start;
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
-  padding-top: 8px;
+  padding-top: 6px;
+}
+
+.commonEntryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+  border-radius: 6px;
 }
 
 .commonEntry {
   display: grid;
-  grid-template-columns: 20px 36px 18px 42px minmax(0, 1fr);
+  grid-template-columns: 18px 38px minmax(0, 1fr);
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   width: 100%;
   min-height: 18px;
   border: 0;
   border-radius: 6px;
-  padding: 1px 3px;
+  padding: 0 2px;
   background: transparent;
   color: #202124;
   font-size: 11px;
   text-align: left;
 }
 
-.commonEntry:hover {
+.commonEntry:hover,
+.commonEntryRow:hover {
   background: rgba(31, 122, 104, 0.08);
 }
 
+.commonEntryRow .commonEntry:hover {
+  background: transparent;
+}
+
 .commonEntry .marker {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   font-size: 13px;
 }
 
@@ -523,11 +696,17 @@ button.nearestEventPanel:focus-visible {
 
 .commonEntry strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendarTodoDone {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
 }
 
 .commonMore {
@@ -653,6 +832,14 @@ button.nearestEventPanel:focus-visible {
   margin-top: 5px;
 }
 
+.monthEntryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1px;
+  border-radius: 5px;
+}
+
 .monthEntryButton {
   display: grid;
   grid-template-columns: 16px 30px minmax(0, 1fr);
@@ -670,8 +857,13 @@ button.nearestEventPanel:focus-visible {
   text-align: left;
 }
 
-.monthEntryButton:hover {
+.monthEntryButton:hover,
+.monthEntryRow:hover {
   background: rgba(31, 122, 104, 0.08);
+}
+
+.monthEntryRow .monthEntryButton:hover {
+  background: transparent;
 }
 
 .monthEntryButton .marker {
@@ -690,6 +882,12 @@ button.nearestEventPanel:focus-visible {
 .monthEntryButton strong {
   font-size: 11px;
   font-weight: 600;
+}
+
+.monthTodoDone {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
 }
 
 .monthMore {
@@ -785,6 +983,34 @@ button.nearestEventPanel:focus-visible {
 
 .level5 {
   color: #741b17;
+}
+
+.todoMarker {
+  font-size: 14px;
+}
+
+.todoLevel1 {
+  color: #f2b8b5;
+}
+
+.todoLevel2 {
+  color: #ec8f8a;
+}
+
+.todoLevel3 {
+  color: #df5d55;
+}
+
+.todoLevel4 {
+  color: #c92f28;
+}
+
+.todoLevel5 {
+  color: #9f1712;
+}
+
+.todoMarker.completed {
+  color: #9aa3a0;
 }
 
 .kind,
@@ -1335,6 +1561,17 @@ button.nearestEventPanel:focus-visible {
   color: white;
 }
 
+.drawerScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
 .eventDrawer {
   position: fixed;
   top: 0;
@@ -1368,6 +1605,18 @@ button.nearestEventPanel:focus-visible {
 
 .drawerHeader h3 {
   font-size: 22px;
+}
+
+.drawerTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawerTodoDone {
+  width: 24px;
+  height: 24px;
+  color: #87918d;
 }
 
 .iconButton {

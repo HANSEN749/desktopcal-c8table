@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.desktopcal.data.CATEGORY_CALENDAR
+import com.example.desktopcal.data.CATEGORY_TODO
 import com.example.desktopcal.data.EntryDraft
 import com.example.desktopcal.data.KIND_EVENT
 import com.example.desktopcal.data.MobileEntry
@@ -62,6 +64,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     uiState = uiState.copy(draftKind = value)
   }
 
+  fun updateDraftCategory(value: String) {
+    uiState = uiState.copy(draftCategory = value)
+  }
+
   fun updateDraftImportance(value: Int) {
     uiState = uiState.copy(draftImportance = value.coerceIn(1, 5))
   }
@@ -99,10 +105,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
       uiState = uiState.copy(isLoading = true, error = null)
       val draft = EntryDraft(
         title = title,
+        category = uiState.draftCategory,
         date = uiState.draftDate.trim().ifBlank { todayKey() },
-        time = uiState.draftTime.trim(),
+        time = if (uiState.draftCategory == CATEGORY_TODO) "" else uiState.draftTime.trim(),
         unit = uiState.draftUnit,
-        kind = uiState.draftKind,
+        kind = if (uiState.draftCategory == CATEGORY_TODO) KIND_EVENT else uiState.draftKind,
         importance = uiState.draftImportance,
       )
       runCatching { repository.createEntry(token, draft) }
@@ -124,6 +131,7 @@ data class MainScreenUiState(
   val error: String? = null,
   val lastSyncText: String = "未同步",
   val draftTitle: String = "",
+  val draftCategory: String = CATEGORY_CALENDAR,
   val draftDate: String = todayKey(),
   val draftTime: String = "",
   val draftUnit: String = UNIT_WORK,

@@ -13,6 +13,7 @@ function existingFields() {
   return {
     items: [
       { field_id: "fld-title", field_name: "标题", type: 1 },
+      { field_id: "fld-category", field_name: "条目类型", type: 1 },
       { field_id: "fld-date", field_name: "日期", type: 1 },
       { field_id: "fld-time", field_name: "时间", type: 1 },
       { field_id: "fld-unit", field_name: "单位", type: 1 },
@@ -50,6 +51,7 @@ describe("FeishuBitableEntryRepository", () => {
             record_id: "rec-1",
             fields: {
               标题: [{ text: "组会" }],
+              条目类型: "日历",
               日期: "2026-05-30",
               时间: "15:00",
               单位: "科研",
@@ -75,6 +77,7 @@ describe("FeishuBitableEntryRepository", () => {
       time: "15:00",
       unit: "research",
       kind: "duration",
+      category: "calendar",
       importance: 5,
       completed: true,
       note: "带材料",
@@ -123,18 +126,80 @@ describe("FeishuBitableEntryRepository", () => {
       .filter((request) => request.url.includes("/fields") && request.init?.method === "POST")
       .map((request) => JSON.parse(request.init?.body as string).field_name);
     expect(createdFields).toContain("日期");
+    expect(createdFields).toContain("条目类型");
     expect(createdFields).toContain("更新时间");
 
     const createBody = JSON.parse(
       requests.find((request) => request.url.includes("/records") && request.init?.method === "POST")?.init?.body as string,
     );
-    expect(createBody.fields).toMatchObject({ 标题: "新事件", 日期: "2026-05-30", 类型: "事件", 重要性: 3 });
+    expect(createBody.fields).toMatchObject({ 标题: "新事件", 条目类型: "日历", 日期: "2026-05-30", 类型: "事件", 重要性: 3 });
 
     const updateBody = JSON.parse(requests.find((request) => request.init?.method === "PUT")?.init?.body as string);
-    expect(updateBody.fields).toMatchObject({ 标题: "改名", 类型: "持续" });
+    expect(updateBody.fields).toMatchObject({ 标题: "改名", 条目类型: "日历", 类型: "截止" });
     expect(requests.at(-1)).toMatchObject({
       url: expect.stringContaining("/open-apis/bitable/v1/apps/app-token/tables/tbl-token/records/rec-1"),
       init: { method: "DELETE" },
+    });
+  });
+
+  it("reads and writes todo entries without time", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      requests.push({ url, init });
+      if (url.includes("/fields")) {
+        return feishuResponse(existingFields());
+      }
+      if (url.includes("/records") && init?.method === "POST") {
+        return feishuResponse({ record: { record_id: "rec-new-todo", fields: {} } });
+      }
+      return feishuResponse({
+        items: [
+          {
+            record_id: "rec-todo",
+            fields: {
+              标题: "整理发票",
+              条目类型: "代办",
+              日期: "2026-05-30",
+              时间: "15:00",
+              单位: "单位",
+              类型: "持续",
+              重要性: 4,
+              本地ID: "todo-local",
+            },
+          },
+        ],
+      });
+    }) as FeishuFetcher;
+    const repo = createRepo(fetcher);
+
+    const entries = await repo.list();
+    const created = await repo.create({
+      title: "新代办",
+      date: "2026-05-29",
+      time: "09:00",
+      category: "todo",
+      unit: "work",
+      importance: 5,
+      attachments: [],
+    });
+
+    expect(entries[0]).toMatchObject({
+      category: "todo",
+      title: "整理发票",
+      date: "2026-05-30",
+      time: undefined,
+      kind: "event",
+    });
+    expect(created.id).toBe("rec-new-todo");
+    const createBody = JSON.parse(
+      requests.find((request) => request.url.includes("/records") && request.init?.method === "POST")?.init?.body as string,
+    );
+    expect(createBody.fields).toMatchObject({
+      标题: "新代办",
+      条目类型: "代办",
+      时间: "",
+      类型: "",
     });
   });
 });

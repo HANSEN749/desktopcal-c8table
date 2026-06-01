@@ -1,4 +1,4 @@
-import type { Entry, EntryAttachment, EntryUnitId, EventKind } from "@desktopcal/shared";
+import type { Entry, EntryAttachment, EntryCategory, EntryUnitId, EventKind } from "@desktopcal/shared";
 import { entryUnitProfiles, getEntryUnitProfile } from "@desktopcal/shared";
 import { toDateKey } from "../domain/date";
 import {
@@ -68,6 +68,7 @@ const FEISHU_FIELD_TYPES = {
 const FIELD = {
   localId: "本地ID",
   title: "标题",
+  category: "条目类型",
   date: "日期",
   time: "时间",
   unit: "单位",
@@ -82,6 +83,7 @@ const FIELD = {
 
 const REQUIRED_FIELDS: RequiredField[] = [
   { name: FIELD.title, type: FEISHU_FIELD_TYPES.text },
+  { name: FIELD.category, type: FEISHU_FIELD_TYPES.text },
   { name: FIELD.date, type: FEISHU_FIELD_TYPES.text },
   { name: FIELD.time, type: FEISHU_FIELD_TYPES.text },
   { name: FIELD.unit, type: FEISHU_FIELD_TYPES.text },
@@ -101,8 +103,23 @@ const unitLabelToId = new Map<string, EntryUnitId>(
 
 const kindLabelById: Record<EventKind, string> = {
   event: "事件",
-  duration: "持续",
+  duration: "截止",
 };
+
+const categoryLabelById: Record<EntryCategory, string> = {
+  calendar: "日历",
+  todo: "代办",
+};
+
+const categoryIdByLabel = new Map<string, EntryCategory>([
+  ["日历", "calendar"],
+  ["calendar", "calendar"],
+  ["事件日历", "calendar"],
+  ["代办", "todo"],
+  ["todo", "todo"],
+  ["待办", "todo"],
+  ["任务", "todo"],
+]);
 
 const kindIdByLabel = new Map<string, EventKind>([
   ["事件", "event"],
@@ -185,10 +202,11 @@ export class FeishuBitableEntryRepository implements EntryRepository {
     const unitProfile = getEntryUnitProfile(entry.unit);
     return {
       [FIELD.title]: entry.title,
+      [FIELD.category]: categoryLabelById[entry.category ?? "calendar"],
       [FIELD.date]: entry.date,
-      [FIELD.time]: entry.time ?? "",
+      [FIELD.time]: entry.category === "todo" ? "" : entry.time ?? "",
       [FIELD.unit]: unitProfile.label,
-      [FIELD.kind]: kindLabelById[entry.kind],
+      [FIELD.kind]: entry.category === "todo" ? "" : kindLabelById[entry.kind],
       [FIELD.importance]: entry.importance,
       [FIELD.completed]: entry.completed ?? false,
       [FIELD.note]: entry.note ?? "",
@@ -206,6 +224,7 @@ export class FeishuBitableEntryRepository implements EntryRepository {
       return [];
     }
     const unit = unitFromCell(fields[FIELD.unit]);
+    const category = categoryFromCell(fields[FIELD.category]);
     const presentation = getEntryUnitProfile(unit);
     const now = new Date().toISOString();
     return [
@@ -215,9 +234,10 @@ export class FeishuBitableEntryRepository implements EntryRepository {
         unit,
         title,
         date: dateFromCell(fields[FIELD.date]) ?? fallbackDate,
-        time: textFromCell(fields[FIELD.time]),
+        time: category === "todo" ? undefined : textFromCell(fields[FIELD.time]),
+        category,
         shape: presentation.shape,
-        kind: kindFromCell(fields[FIELD.kind]),
+        kind: category === "todo" ? "event" : kindFromCell(fields[FIELD.kind]),
         importance: importanceFromCell(fields[FIELD.importance]),
         completed: completedFromCell(fields[FIELD.completed]),
         note: textFromCell(fields[FIELD.note]),
@@ -342,6 +362,11 @@ function unitFromCell(value: unknown): EntryUnitId {
 function kindFromCell(value: unknown): EventKind {
   const text = textFromCell(value);
   return (text && kindIdByLabel.get(text)) || "event";
+}
+
+function categoryFromCell(value: unknown): EntryCategory {
+  const text = textFromCell(value);
+  return (text && categoryIdByLabel.get(text)) || "calendar";
 }
 
 function importanceFromCell(value: unknown): 1 | 2 | 3 | 4 | 5 {

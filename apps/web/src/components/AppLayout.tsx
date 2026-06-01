@@ -1,13 +1,5 @@
-import {
-  getEntryMarkerSymbol,
-  kindLabels,
-  kindShortLabels,
-  type Entry,
-  type EntryUnitId,
-  type EntryUnitProfile,
-} from "@desktopcal/shared";
+import type { Entry, EntryUnitId, EntryUnitProfile } from "@desktopcal/shared";
 import { useMemo, type ReactNode } from "react";
-import { dayDiff } from "../domain/date";
 
 export type RepositoryMode = "local" | "teable" | "feishu";
 export type AppView = "common" | "calendar" | "time" | "reports" | "settings";
@@ -17,11 +9,13 @@ interface AppLayoutProps {
   entries: Entry[];
   today: string;
   unitProfiles: Record<EntryUnitId, EntryUnitProfile>;
+  databaseUrl?: string;
   quickAdd: ReactNode;
   drawer: ReactNode;
   children: ReactNode;
   onViewChange(view: AppView): void;
   onEditEntry(entry: Entry): void;
+  onCompleteTodo(entry: Entry): void;
 }
 
 export function AppLayout({
@@ -29,13 +23,15 @@ export function AppLayout({
   entries,
   today,
   unitProfiles,
+  databaseUrl,
   quickAdd,
   drawer,
   children,
   onViewChange,
   onEditEntry,
+  onCompleteTodo,
 }: AppLayoutProps) {
-  const nearestEntry = useMemo(() => findNearestEntry(entries, today), [entries, today]);
+  const todos = useMemo(() => selectSidebarTodos(entries), [entries]);
 
   return (
     <main className="appShell">
@@ -81,15 +77,19 @@ export function AppLayout({
             设置
           </button>
         </nav>
-        <section className="miniStats" aria-label="Event stats">
-          <strong>{entries.length}</strong>
-          <span>表格事件</span>
-        </section>
-        <NearestEventCard
-          entry={nearestEntry}
-          today={today}
+        <button
+          className="miniStats databaseButton"
+          type="button"
+          aria-label="进入后台数据库"
+          onClick={() => openDatabase(databaseUrl)}
+        >
+          <span>后台数据库</span>
+        </button>
+        <TodoListPanel
+          todos={todos}
           unitProfiles={unitProfiles}
           onEditEntry={onEditEntry}
+          onCompleteTodo={onCompleteTodo}
         />
       </aside>
 
@@ -108,122 +108,92 @@ export function AppLayout({
   );
 }
 
-interface NearestEventCardProps {
-  entry: Entry | undefined;
-  today: string;
+interface TodoListPanelProps {
+  todos: Entry[];
   unitProfiles: Record<EntryUnitId, EntryUnitProfile>;
   onEditEntry(entry: Entry): void;
+  onCompleteTodo(entry: Entry): void;
 }
 
-function NearestEventCard({ entry, today, unitProfiles, onEditEntry }: NearestEventCardProps) {
-  if (!entry) {
+function TodoListPanel({ todos, unitProfiles, onEditEntry, onCompleteTodo }: TodoListPanelProps) {
+  if (todos.length === 0) {
     return (
-      <section className="nearestEventPanel empty" aria-label="最近事件">
-        <p className="nearestLabel">最近事件</p>
-        <strong>暂无未完成事件</strong>
-        <span>有新安排后，这里会显示离当前最近的一条。</span>
+      <section className="todoPanel empty" aria-label="代办清单">
+        <strong>暂无未完成待办</strong>
+        <span>新建代办后，这里按重要性显示前 5 条。</span>
       </section>
     );
   }
 
-  const unitProfile = unitProfiles[entry.unit] ?? unitProfiles.work;
-  const relativeLabel = formatRelativeDate(today, entry.date);
-  const attachmentCount = entry.attachments.length;
-
   return (
-    <button
-      className="nearestEventPanel"
-      type="button"
-      aria-label={`编辑最近事件：${entry.title}`}
-      onClick={() => onEditEntry(entry)}
-    >
-      <span className="nearestLabel">最近事件</span>
-      <span className="nearestDate">
-        <strong>{entry.date}</strong>
-        <em>{relativeLabel}</em>
-      </span>
-      <strong className="nearestTitle">{entry.title}</strong>
-      <span className="nearestMeta">
-        <span className={`marker level${entry.importance}`} title={unitProfile.label}>
-          {getEntryMarkerSymbol(unitProfile.shape, entry.kind)}
-        </span>
-        <span>{entry.time ?? "--:--"}</span>
-        <span>{kindShortLabels[entry.kind]}</span>
-        <span>{unitProfile.label}</span>
-        <span>L{entry.importance}</span>
-      </span>
-      <span className="nearestKind">{kindLabels[entry.kind]}</span>
-      {entry.note ? <span className="nearestNote">{entry.note}</span> : null}
-      {attachmentCount > 0 ? <span className="nearestAttachment">{attachmentCount} 个附件</span> : null}
-    </button>
+    <section className="todoPanel" aria-label="代办清单">
+      <strong className="todoPanelTitle">未完成待办</strong>
+      <div className="todoList">
+        {todos.map((entry) => {
+          const unitProfile = unitProfiles[entry.unit] ?? unitProfiles.work;
+          return (
+            <div className="todoRowShell" key={entry.id}>
+              <button
+                className="todoRow"
+                type="button"
+                aria-label={`编辑代办：${entry.title}`}
+                onClick={() => onEditEntry(entry)}
+              >
+                <span className={`marker todoMarker todoLevel${entry.importance}`} title="代办">
+                  ●
+                </span>
+                <span className="todoRowBody">
+                  <strong>{entry.title}</strong>
+                  <span>{unitProfile.label}</span>
+                </span>
+                <em>L{entry.importance}</em>
+              </button>
+              <button
+                className="todoQuickDoneButton sidebarTodoDone"
+                type="button"
+                title="设为已办"
+                aria-label={`设为已办：${entry.title}`}
+                onClick={() => onCompleteTodo(entry)}
+              >
+                ✓
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
-function findNearestEntry(entries: Entry[], today: string): Entry | undefined {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const pending = entries.filter((entry) => !entry.completed);
-  const upcoming = pending.filter((entry) => {
-    if (entry.date < today) {
-      return false;
+function selectSidebarTodos(entries: Entry[]): Entry[] {
+  return entries
+    .filter((entry) => entry.category === "todo" && !entry.completed)
+    .sort(
+      (left, right) =>
+        right.importance - left.importance ||
+        left.createdAt.localeCompare(right.createdAt) ||
+        left.title.localeCompare(right.title, "zh-Hans-CN"),
+    )
+    .slice(0, 5);
+}
+
+async function openDatabase(databaseUrl: string | undefined): Promise<void> {
+  if (!databaseUrl) {
+    window.alert("尚未挂载多维表格，无法可视化数据库");
+    return;
+  }
+  try {
+    const shell = window as Window & {
+      __TAURI_INTERNALS__?: { invoke?: (command: string, args?: unknown) => Promise<unknown> };
+      __TAURI__?: { core?: { invoke?: (command: string, args?: unknown) => Promise<unknown> } };
+    };
+    const invoke = shell.__TAURI_INTERNALS__?.invoke ?? shell.__TAURI__?.core?.invoke;
+    if (invoke) {
+      await invoke("open_external_url", { url: databaseUrl });
+      return;
     }
-    if (entry.date !== today) {
-      return true;
-    }
-    const entryMinutes = minutesFromTime(entry.time);
-    return entryMinutes === undefined || entryMinutes >= currentMinutes;
-  });
-
-  return (
-    [...upcoming].sort((left, right) => compareUpcomingEntries(left, right, today))[0] ??
-    [...pending].sort((left, right) => compareFallbackEntries(left, right, today))[0]
-  );
-}
-
-function compareUpcomingEntries(left: Entry, right: Entry, today: string): number {
-  return (
-    dayDiff(today, left.date) - dayDiff(today, right.date) ||
-    timeSortValue(left.time) - timeSortValue(right.time) ||
-    right.importance - left.importance ||
-    left.title.localeCompare(right.title, "zh-Hans-CN")
-  );
-}
-
-function compareFallbackEntries(left: Entry, right: Entry, today: string): number {
-  return (
-    Math.abs(dayDiff(today, left.date)) - Math.abs(dayDiff(today, right.date)) ||
-    compareUpcomingEntries(left, right, today)
-  );
-}
-
-function minutesFromTime(time: string | undefined): number | undefined {
-  if (!time) {
-    return undefined;
+  } catch {
+    // Fall back to browser behavior below when the native shell command is unavailable.
   }
-  const match = time.match(/^(\d{2}):(\d{2})$/);
-  if (!match) {
-    return undefined;
-  }
-  return Number(match[1]) * 60 + Number(match[2]);
-}
-
-function timeSortValue(time: string | undefined): number {
-  return minutesFromTime(time) ?? 24 * 60;
-}
-
-function formatRelativeDate(today: string, date: string): string {
-  const diff = dayDiff(today, date);
-  if (diff === 0) {
-    return "今天";
-  }
-  if (diff === 1) {
-    return "明天";
-  }
-  if (diff === 2) {
-    return "后天";
-  }
-  if (diff === -1) {
-    return "昨天";
-  }
-  return diff < 0 ? `${Math.abs(diff)} 天前` : `${diff} 天后`;
+  window.open(databaseUrl, "_blank", "noopener,noreferrer");
 }

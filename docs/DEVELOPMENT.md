@@ -38,6 +38,11 @@ and re-run doctor.
 | `uv run --no-editable desktopcal harness lint` | Validate ECL harness structure |
 | `powershell -ExecutionPolicy Bypass -File apps\android\build-debug.ps1` | Build the Android debug APK |
 
+For any desktop-facing code or UI change, run `uv run --no-editable desktopcal build` before
+handoff so `apps\desktop\src-tauri\target\release\desktopcal.exe` and the NSIS installer are fresh.
+Only skip this for work explicitly scoped to Android, iOS, docs, or another non-Windows-desktop
+target.
+
 Android is intentionally not wired into root `npm run build` or `uv run desktopcal build`; desktop
 verification must stay fast and stable. Use the explicit Android command when building the APK.
 

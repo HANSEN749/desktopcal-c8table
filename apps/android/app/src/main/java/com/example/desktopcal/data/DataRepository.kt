@@ -19,6 +19,7 @@ const val DEFAULT_TEABLE_TABLE_ID = "tbl2wWI7diI2vs5anMs"
 data class MobileEntry(
   val id: String,
   val title: String,
+  val category: String,
   val date: String,
   val time: String,
   val unit: String,
@@ -30,6 +31,7 @@ data class MobileEntry(
 
 data class EntryDraft(
   val title: String,
+  val category: String,
   val date: String,
   val time: String,
   val unit: String,
@@ -63,10 +65,11 @@ class TeableRepository(
       val now = isoNow()
       val fields = JSONObject()
         .put(FIELD_TITLE, draft.title)
+        .put(FIELD_CATEGORY, draft.category)
         .put(FIELD_DATE, draft.date)
-        .put(FIELD_TIME, draft.time.ifBlank { JSONObject.NULL })
+        .put(FIELD_TIME, if (draft.category == CATEGORY_TODO) JSONObject.NULL else draft.time.ifBlank { JSONObject.NULL })
         .put(FIELD_UNIT, draft.unit)
-        .put(FIELD_KIND, draft.kind)
+        .put(FIELD_KIND, if (draft.category == CATEGORY_TODO) JSONObject.NULL else draft.kind)
         .put(FIELD_IMPORTANCE, draft.importance)
         .put(FIELD_COMPLETED, false)
         .put(FIELD_NOTE, JSONObject.NULL)
@@ -89,10 +92,11 @@ class TeableRepository(
       parseRecord(record ?: JSONObject()) ?: MobileEntry(
         id = "",
         title = draft.title,
+        category = draft.category,
         date = draft.date,
-        time = draft.time,
+        time = if (draft.category == CATEGORY_TODO) "" else draft.time,
         unit = draft.unit,
-        kind = draft.kind,
+        kind = if (draft.category == CATEGORY_TODO) KIND_EVENT else draft.kind,
         importance = draft.importance,
         completed = false,
         note = "",
@@ -147,13 +151,15 @@ class TeableRepository(
   private fun parseRecord(record: JSONObject): MobileEntry? {
     val fields = record.optJSONObject("fields") ?: return null
     val title = fieldText(fields.opt(FIELD_TITLE)) ?: fieldText(fields.opt(LEGACY_TEXT_FIELD)) ?: return null
+    val category = fieldText(fields.opt(FIELD_CATEGORY)) ?: CATEGORY_CALENDAR
     return MobileEntry(
       id = record.optString("id"),
       title = title,
+      category = category,
       date = fieldText(fields.opt(FIELD_DATE))?.take(10) ?: todayKey(),
-      time = fieldText(fields.opt(FIELD_TIME)).orEmpty(),
+      time = if (category == CATEGORY_TODO) "" else fieldText(fields.opt(FIELD_TIME)).orEmpty(),
       unit = fieldText(fields.opt(FIELD_UNIT)) ?: UNIT_WORK,
-      kind = fieldText(fields.opt(FIELD_KIND)) ?: KIND_EVENT,
+      kind = if (category == CATEGORY_TODO) KIND_EVENT else kindFromText(fieldText(fields.opt(FIELD_KIND))),
       importance = fieldText(fields.opt(FIELD_IMPORTANCE))?.toIntOrNull()?.coerceIn(1, 5) ?: 3,
       completed = fieldBoolean(fields.opt(FIELD_COMPLETED)),
       note = fieldText(fields.opt(FIELD_NOTE)).orEmpty(),
@@ -174,6 +180,13 @@ class TeableRepository(
       is Number -> value.toInt() != 0
       is String -> value.equals("true", ignoreCase = true) || value == "1" || value == "完成" || value == "已完成"
       else -> false
+    }
+
+  private fun kindFromText(value: String?): String =
+    when (value) {
+      KIND_DURATION, "持续", "实", "duration", "deadline", "截止日期" -> KIND_DURATION
+      KIND_EVENT, "空", "event" -> KIND_EVENT
+      else -> KIND_EVENT
     }
 
   private fun request(
@@ -216,6 +229,7 @@ data class RequiredField(
 )
 
 val unitLabels = listOf(UNIT_WORK, "科研", "评审", "个人", "其他")
+val categoryLabels = listOf(CATEGORY_CALENDAR, CATEGORY_TODO)
 val kindLabels = listOf(KIND_EVENT, KIND_DURATION)
 
 fun todayKey(): String = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(Date())
@@ -227,6 +241,7 @@ fun isoNow(): String {
 }
 
 private const val FIELD_TITLE = "标题"
+private const val FIELD_CATEGORY = "条目类型"
 private const val FIELD_DATE = "日期"
 private const val FIELD_TIME = "时间"
 private const val FIELD_UNIT = "单位"
@@ -242,15 +257,18 @@ private const val FIELD_UPDATED_AT = "更新时间"
 private const val LEGACY_TEXT_FIELD = "单行文本"
 
 const val UNIT_WORK = "单位"
+const val CATEGORY_CALENDAR = "日历"
+const val CATEGORY_TODO = "代办"
 const val KIND_EVENT = "事件"
-const val KIND_DURATION = "持续"
+const val KIND_DURATION = "截止"
 
 private val requiredFields = listOf(
   RequiredField(FIELD_TITLE, "singleLineText", "desktopcal_title", "事件标题"),
+  RequiredField(FIELD_CATEGORY, "singleSelect", "desktopcal_category", "日历或代办", "singleLineText"),
   RequiredField(FIELD_DATE, "date", "desktopcal_date", "事件日期", "singleLineText"),
   RequiredField(FIELD_TIME, "singleLineText", "desktopcal_time", "事件时间，HH:mm"),
   RequiredField(FIELD_UNIT, "singleSelect", "desktopcal_unit", "单位/来源，决定月历显示形状", "singleLineText"),
-  RequiredField(FIELD_KIND, "singleSelect", "desktopcal_kind", "事件或持续，决定空心/实心显示", "singleLineText"),
+  RequiredField(FIELD_KIND, "singleSelect", "desktopcal_kind", "事件或截止，决定空心/实心显示", "singleLineText"),
   RequiredField(FIELD_IMPORTANCE, "rating", "desktopcal_importance", "1-5 星重要性", "number"),
   RequiredField(FIELD_COMPLETED, "checkbox", "desktopcal_completed", "事件是否已完成", "singleLineText"),
   RequiredField(FIELD_NOTE, "longText", "desktopcal_note", "备注"),

@@ -27,9 +27,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
+import com.example.desktopcal.data.CATEGORY_TODO
 import com.example.desktopcal.data.KIND_DURATION
 import com.example.desktopcal.data.KIND_EVENT
 import com.example.desktopcal.data.MobileEntry
+import com.example.desktopcal.data.categoryLabels
 import com.example.desktopcal.data.kindLabels
 import com.example.desktopcal.data.todayKey
 import com.example.desktopcal.data.unitLabels
@@ -50,6 +52,7 @@ fun MainScreen(
     onDateChange = viewModel::updateDraftDate,
     onTimeChange = viewModel::updateDraftTime,
     onUnitChange = viewModel::updateDraftUnit,
+    onCategoryChange = viewModel::updateDraftCategory,
     onKindChange = viewModel::updateDraftKind,
     onImportanceChange = viewModel::updateDraftImportance,
     onCreate = viewModel::createEntry,
@@ -67,6 +70,7 @@ internal fun MainScreen(
   onDateChange: (String) -> Unit,
   onTimeChange: (String) -> Unit,
   onUnitChange: (String) -> Unit,
+  onCategoryChange: (String) -> Unit,
   onKindChange: (String) -> Unit,
   onImportanceChange: (Int) -> Unit,
   onCreate: () -> Unit,
@@ -94,6 +98,7 @@ internal fun MainScreen(
       onDateChange = onDateChange,
       onTimeChange = onTimeChange,
       onUnitChange = onUnitChange,
+      onCategoryChange = onCategoryChange,
       onKindChange = onKindChange,
       onImportanceChange = onImportanceChange,
       onCreate = onCreate,
@@ -147,6 +152,7 @@ private fun QuickCreateCard(
   onDateChange: (String) -> Unit,
   onTimeChange: (String) -> Unit,
   onUnitChange: (String) -> Unit,
+  onCategoryChange: (String) -> Unit,
   onKindChange: (String) -> Unit,
   onImportanceChange: (Int) -> Unit,
   onCreate: () -> Unit,
@@ -161,24 +167,29 @@ private fun QuickCreateCard(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
       )
+      ChipGroup("条目类型", categoryLabels, state.draftCategory, onCategoryChange)
       Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         OutlinedTextField(
           value = state.draftDate,
           onValueChange = onDateChange,
-          label = { Text("日期") },
+          label = { Text(if (state.draftCategory == CATEGORY_TODO) "归属日" else "日期") },
           singleLine = true,
           modifier = Modifier.weight(1f),
         )
-        OutlinedTextField(
-          value = state.draftTime,
-          onValueChange = onTimeChange,
-          label = { Text("时间") },
-          singleLine = true,
-          modifier = Modifier.weight(1f),
-        )
+        if (state.draftCategory != CATEGORY_TODO) {
+          OutlinedTextField(
+            value = state.draftTime,
+            onValueChange = onTimeChange,
+            label = { Text("时间") },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+          )
+        }
       }
       ChipGroup("来源", unitLabels, state.draftUnit, onUnitChange)
-      ChipGroup("类型", kindLabels, state.draftKind, onKindChange)
+      if (state.draftCategory != CATEGORY_TODO) {
+        ChipGroup("类型", kindLabels, state.draftKind, onKindChange)
+      }
       FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         (1..5).forEach { level ->
           FilterChip(
@@ -215,7 +226,7 @@ private fun EntryRow(entry: MobileEntry) {
   Card(modifier = Modifier.fillMaxWidth()) {
     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(markerFor(entry.unit, entry.kind), color = MaterialTheme.colorScheme.primary)
+        Text(markerFor(entry.category, entry.unit, entry.kind), color = MaterialTheme.colorScheme.primary)
         Text(entry.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         if (entry.completed) {
           Text("已完成", style = MaterialTheme.typography.bodySmall)
@@ -223,7 +234,7 @@ private fun EntryRow(entry: MobileEntry) {
         Text("L${entry.importance}", style = MaterialTheme.typography.bodySmall)
       }
       Text(
-        listOf(entry.date, entry.time, entry.unit, entry.kind).filter { it.isNotBlank() }.joinToString("  "),
+        listOf(entry.date, entry.time, entry.category, entry.unit, entry.kind).filter { it.isNotBlank() }.joinToString("  "),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -234,7 +245,10 @@ private fun EntryRow(entry: MobileEntry) {
   }
 }
 
-private fun markerFor(unit: String, kind: String): String {
+private fun markerFor(category: String, unit: String, kind: String): String {
+  if (category == CATEGORY_TODO) {
+    return "●"
+  }
   val solid = kind == KIND_DURATION
   return when (unit) {
     "科研" -> if (solid) "●" else "○"
@@ -254,8 +268,8 @@ fun MainScreenPreview() {
         lastSyncText = "已同步 2 条",
         draftDate = todayKey(),
         entries = listOf(
-          MobileEntry("1", "中央巡检", todayKey(), "15:30", "单位", KIND_DURATION, 5, false, ""),
-          MobileEntry("2", "组会", todayKey(), "09:00", "科研", KIND_EVENT, 3, false, "带材料"),
+          MobileEntry("1", "中央巡检", "日历", todayKey(), "15:30", "单位", KIND_DURATION, 5, false, ""),
+          MobileEntry("2", "组会", "日历", todayKey(), "09:00", "科研", KIND_EVENT, 3, false, "带材料"),
         ),
       ),
       onTokenChange = {},
@@ -265,6 +279,7 @@ fun MainScreenPreview() {
       onDateChange = {},
       onTimeChange = {},
       onUnitChange = {},
+      onCategoryChange = {},
       onKindChange = {},
       onImportanceChange = {},
       onCreate = {},

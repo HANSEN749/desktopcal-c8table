@@ -9,6 +9,7 @@
     "localId",
     "title",
     "date",
+    "category",
     "unit",
     "kind",
     "importance",
@@ -35,6 +36,9 @@
     "time": {
       "type": "string",
       "pattern": "^\\d{2}:\\d{2}$"
+    },
+    "category": {
+      "enum": ["calendar", "todo"]
     },
     "unit": {
       "enum": ["work", "research", "review", "personal", "other"]

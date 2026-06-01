@@ -7,6 +7,7 @@ export function makeEntry(overrides: Partial<Entry> = {}): Entry {
     unit: "work",
     title: "组会",
     date: "2026-05-27",
+    category: "calendar",
     shape: "circle",
     kind: "event",
     importance: 3,

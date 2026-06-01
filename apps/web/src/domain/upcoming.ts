@@ -22,7 +22,7 @@ export function groupUpcomingEntries(
 ): UpcomingGroup[] {
   const grouped = new Map<string, Entry[]>();
   for (const entry of entries) {
-    if (entry.completed) {
+    if (entry.completed || entry.category === "todo") {
       continue;
     }
     const offset = dayDiff(today, entry.date);
@@ -44,6 +44,9 @@ export function groupUpcomingEntries(
 }
 
 export function isUrgent(entry: Entry, today: string): boolean {
+  if (entry.category === "todo") {
+    return false;
+  }
   const offset = dayDiff(today, entry.date);
   return entry.kind === "duration" && entry.importance >= 4 && offset >= 0 && offset <= 2;
 }

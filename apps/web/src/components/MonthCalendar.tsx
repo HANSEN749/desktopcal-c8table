@@ -12,6 +12,7 @@ interface MonthCalendarProps {
   onMonthChange(month: Date): void;
   onCreateAtDate(date: string): void;
   onEditEntry(entry: Entry): void;
+  onCompleteTodo(entry: Entry): void;
 }
 
 function createMonthDays(current: Date): Date[] {
@@ -33,6 +34,7 @@ export function MonthCalendar({
   onMonthChange,
   onCreateAtDate,
   onEditEntry,
+  onCompleteTodo,
 }: MonthCalendarProps) {
   const monthDays = useMemo(() => createMonthDays(currentMonth), [currentMonth]);
   const entriesByDate = useMemo(() => {
@@ -100,21 +102,50 @@ export function MonthCalendar({
                 {dayEntries.slice(0, 6).map((entry) => {
                   const unitProfile = unitProfiles[entry.unit] ?? unitProfiles.work;
                   return (
-                    <button
-                      className="monthEntryButton"
+                    <div
+                      className={entry.category === "todo" ? "monthEntryRow todoEntryRow" : "monthEntryRow"}
                       key={entry.id}
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEditEntry(entry);
-                      }}
                     >
-                      <span className={`marker level${entry.importance}`} title={unitProfile.label}>
-                        {getEntryMarkerSymbol(unitProfile.shape, entry.kind)}
-                      </span>
-                      <span>{entry.time ?? ""}</span>
-                      <strong>{entry.title}</strong>
-                    </button>
+                      <button
+                        className="monthEntryButton"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditEntry(entry);
+                        }}
+                      >
+                        <span
+                          className={
+                            entry.category === "todo"
+                              ? `marker todoMarker todoLevel${entry.importance}${entry.completed ? " completed" : ""}`
+                              : `marker level${entry.importance}`
+                          }
+                          title={entry.category === "todo" ? "代办" : unitProfile.label}
+                        >
+                          {entry.category === "todo"
+                            ? entry.completed
+                              ? "○"
+                              : "●"
+                            : getEntryMarkerSymbol(unitProfile.shape, entry.kind)}
+                        </span>
+                        <span>{entry.category === "todo" ? "" : entry.time ?? ""}</span>
+                        <strong>{entry.title}</strong>
+                      </button>
+                      {entry.category === "todo" && !entry.completed ? (
+                        <button
+                          className="todoQuickDoneButton calendarTodoDone monthTodoDone"
+                          type="button"
+                          title="设为已办"
+                          aria-label={`设为已办：${entry.title}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onCompleteTodo(entry);
+                          }}
+                        >
+                          ✓
+                        </button>
+                      ) : null}
+                    </div>
                   );
                 })}
                 {dayEntries.length > 6 ? <span className="monthMore">+{dayEntries.length - 6}</span> : null}

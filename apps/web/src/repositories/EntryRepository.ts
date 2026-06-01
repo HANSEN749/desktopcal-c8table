@@ -1,6 +1,7 @@
 import type {
   Entry,
   EntryAttachment,
+  EntryCategory,
   EventKind,
   EventShape,
   EntryUnitId,
@@ -14,6 +15,7 @@ export interface EntryDraft {
   title: string;
   date: string;
   time?: string;
+  category?: EntryCategory;
   shape?: EventShape;
   kind?: EventKind;
   importance: Importance;
@@ -47,6 +49,12 @@ export function normalizeOptionalText(value: string | undefined): string | undef
   return trimmed ? trimmed : undefined;
 }
 
+function localDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
 export function createEntryFromDraft(
   draft: EntryDraft,
   id = `local-${createLocalId()}`,
@@ -55,14 +63,17 @@ export function createEntryFromDraft(
   const localId = draft.localId ?? createLocalId();
   const unit = draft.unit ?? "work";
   const presentation = getEntryUnitProfile(unit);
-  const kind = draft.kind ?? "event";
+  const category = draft.category ?? "calendar";
+  const kind = category === "todo" ? "event" : draft.kind ?? "event";
+  const timestampDate = new Date(timestamp);
   return {
     id,
     localId,
     unit,
     title: draft.title.trim(),
-    date: draft.date,
-    time: normalizeOptionalText(draft.time),
+    date: category === "todo" ? localDateKey(timestampDate) : draft.date,
+    time: category === "todo" ? undefined : normalizeOptionalText(draft.time),
+    category,
     shape: presentation.shape,
     kind,
     importance: draft.importance,
@@ -76,12 +87,17 @@ export function createEntryFromDraft(
 
 export function touchEntry(entry: Entry, timestamp = new Date().toISOString()): Entry {
   const presentation = getEntryUnitProfile(entry.unit);
+  const category = entry.category ?? "calendar";
+  const createdDate = new Date(entry.createdAt);
   return {
     ...entry,
-    time: normalizeOptionalText(entry.time),
+    date: category === "todo" && !Number.isNaN(createdDate.getTime()) ? localDateKey(createdDate) : entry.date,
+    time: category === "todo" ? undefined : normalizeOptionalText(entry.time),
     note: normalizeOptionalText(entry.note),
     title: entry.title.trim(),
+    category,
     shape: presentation.shape,
+    kind: category === "todo" ? "event" : entry.kind,
     completed: entry.completed ?? false,
     updatedAt: timestamp,
   };

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { LocalEntryRepository } from "./LocalEntryRepository";
-import { createDefaultEntryRepository, readRuntimeRepositoryConfig, saveStoredFeishuConfig, saveStoredRepositoryProvider, saveStoredTeableToken } from "./runtimeConfig";
+import {
+  createDefaultEntryRepository,
+  readRuntimeRepositoryConfig,
+  saveStoredDatabaseUrl,
+  saveStoredFeishuConfig,
+  saveStoredRepositoryProvider,
+  saveStoredTeableToken,
+} from "./runtimeConfig";
 
 describe("runtime repository config", () => {
   it("defaults to local backup storage when no remote backend is configured", async () => {
@@ -52,5 +59,16 @@ describe("runtime repository config", () => {
 
     saveStoredRepositoryProvider("local", storage);
     expect(readRuntimeRepositoryConfig(storage).provider).toBe("local");
+  });
+
+  it("stores a visual database URL separately from API credentials", () => {
+    const storage = window.localStorage;
+    storage.clear();
+
+    saveStoredDatabaseUrl(" https://c8table.com/base/app/table/tbl/view/viw ", storage);
+    expect(readRuntimeRepositoryConfig(storage).databaseUrl).toBe("https://c8table.com/base/app/table/tbl/view/viw");
+
+    saveStoredDatabaseUrl("", storage);
+    expect(readRuntimeRepositoryConfig(storage).databaseUrl).toBeUndefined();
   });
 });

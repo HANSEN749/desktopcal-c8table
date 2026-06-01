@@ -14,6 +14,7 @@ function existingFields() {
   return [
     { id: "fld-primary", name: TEABLE_JSON_FIELD_NAME, type: "singleLineText" },
     { id: "fld-title", name: "标题", type: "singleLineText" },
+    { id: "fld-category", name: "条目类型", type: "singleSelect" },
     { id: "fld-date", name: "日期", type: "date" },
     { id: "fld-time", name: "时间", type: "singleLineText" },
     { id: "fld-unit", name: "单位", type: "singleSelect" },
@@ -42,6 +43,7 @@ describe("TeableJsonEntryRepository", () => {
             id: "rec-1",
             fields: {
               标题: "组会",
+              条目类型: "日历",
               日期: "2026-05-27T00:00:00.000Z",
               时间: "15:00",
               单位: "单位",
@@ -66,6 +68,7 @@ describe("TeableJsonEntryRepository", () => {
       time: "15:00",
       unit: "work",
       kind: "duration",
+      category: "calendar",
       importance: 5,
       note: "带材料",
       attachments: [{ storage: "teable", name: "photo.jpg" }],
@@ -85,6 +88,7 @@ describe("TeableJsonEntryRepository", () => {
             id: "rec-utc-date",
             fields: {
               标题: "巡检材料",
+              条目类型: "日历",
               日期: "2026-05-28T16:00:00.000Z",
               单位: "单位",
               类型: "事件",
@@ -114,6 +118,7 @@ describe("TeableJsonEntryRepository", () => {
             id: "rec-pure-date",
             fields: {
               标题: "纯日期",
+              条目类型: "日历",
               日期: "2026-05-29",
               单位: "单位",
               类型: "事件",
@@ -169,6 +174,7 @@ describe("TeableJsonEntryRepository", () => {
     const fieldCreates = requests.filter((request) => request.url.includes("/field") && request.init?.method === "POST");
     expect(fieldCreates.map((request) => JSON.parse(request.init?.body as string).name)).toEqual([
       "标题",
+      "条目类型",
       "日期",
       "时间",
       "单位",
@@ -187,7 +193,8 @@ describe("TeableJsonEntryRepository", () => {
     expect(migrationBody.record.fields).toMatchObject({
       [TEABLE_JSON_FIELD_NAME]: "旧 JSON 事件",
       标题: "旧 JSON 事件",
-      类型: "持续",
+      条目类型: "日历",
+      类型: "截止",
       重要性: 3,
       完成: false,
     });
@@ -233,6 +240,7 @@ describe("TeableJsonEntryRepository", () => {
     expect(createBody.records[0].fields).toMatchObject({
       [TEABLE_JSON_FIELD_NAME]: "新事件",
       标题: "新事件",
+      条目类型: "日历",
       日期: "2026-05-27",
       单位: "单位",
       类型: "事件",
@@ -241,11 +249,75 @@ describe("TeableJsonEntryRepository", () => {
 
     const updateRequest = requests.find((request) => request.init?.method === "PATCH");
     const updateBody = JSON.parse(updateRequest?.init?.body as string);
-    expect(updateBody.record.fields).toMatchObject({ 标题: "改名", 类型: "持续" });
+    expect(updateBody.record.fields).toMatchObject({ 标题: "改名", 条目类型: "日历", 类型: "截止" });
 
     expect(requests.at(-1)).toMatchObject({
       url: expect.stringContaining("/api/table/tbl2wWI7diI2vs5anMs/record/rec-1"),
       init: { method: "DELETE" },
+    });
+  });
+
+  it("reads and writes todo entries without time", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      requests.push({ url, init });
+      if (url.includes("/field")) {
+        return jsonResponse(existingFields());
+      }
+      if (url.includes("/record?")) {
+        return jsonResponse({
+          records: [
+            {
+              id: "rec-todo",
+              fields: {
+                标题: "整理发票",
+                条目类型: "代办",
+                日期: "2026-05-30",
+                时间: "15:00",
+                单位: "单位",
+                类型: "持续",
+                重要性: 4,
+                本地ID: "todo-local",
+              },
+            },
+          ],
+        });
+      }
+      if (init?.method === "POST") {
+        return jsonResponse({ records: [{ id: "rec-new-todo", fields: {} }] });
+      }
+      return jsonResponse({ records: [] });
+    }) as Fetcher;
+    const repo = new TeableJsonEntryRepository({ token: "token", fetcher });
+
+    const entries = await repo.list();
+    const created = await repo.create({
+      title: "新代办",
+      date: "2026-05-29",
+      time: "09:00",
+      category: "todo",
+      unit: "work",
+      importance: 5,
+      attachments: [],
+    });
+
+    expect(entries[0]).toMatchObject({
+      category: "todo",
+      title: "整理发票",
+      date: "2026-05-30",
+      time: undefined,
+      kind: "event",
+    });
+    expect(created.id).toBe("rec-new-todo");
+    const createBody = JSON.parse(
+      requests.find((request) => request.url.includes("/record") && request.init?.method === "POST")?.init?.body as string,
+    );
+    expect(createBody.records[0].fields).toMatchObject({
+      标题: "新代办",
+      条目类型: "代办",
+      时间: null,
+      类型: null,
     });
   });
 });

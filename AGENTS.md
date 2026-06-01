@@ -63,6 +63,11 @@ without wiring it through `uv run desktopcal`.
 | Tauri shell | `uv run desktopcal doctor`, then `uv run desktopcal dev` |
 | Cross-stack changes | `uv run desktopcal lint` |
 
+Desktop-facing changes must also produce a fresh Windows build with
+`uv run --no-editable desktopcal build` before handoff, so the release exe and installer include the
+latest edits. Skip this only when the task is explicitly limited to Android, iOS, documentation, or
+another non-Windows-desktop target.
+
 ## 7 Current MVP Boundary
 
 The first runnable Windows build uses mock entries in memory. It should open a Tauri window, show

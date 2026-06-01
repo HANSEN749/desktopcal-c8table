@@ -1,12 +1,13 @@
 # Project Status
 
-Last updated: 2026-05-29
+Last updated: 2026-05-31
 
 ## Current State
 
 DesktopCal now has a local-first event layer with optional c8table or Feishu Bitable sync. The
-React UI can create, edit, delete, complete, and quick add events; double-clicking a date opens the
-right-side event drawer. Events always write to the local IndexedDB backup first. When a remote
+React UI can create, edit, delete, complete, and quick add calendar entries and todos;
+double-clicking a date opens the right-side event drawer. Entries always write to the local
+IndexedDB backup first. When a remote
 backend is selected, `LocalFirstEntryRepository` syncs the same entries to c8table through
 `TeableJsonEntryRepository` or to Feishu Bitable through `FeishuBitableEntryRepository`.
 
@@ -20,9 +21,23 @@ The same React/Vite UI can run as a standalone web app or inside the Windows exe
 supports c8table OAuth 2.0 PKCE with an OAuth Client ID from settings or
 `VITE_TEABLE_OAUTH_CLIENT_ID`; manual API token entry remains available for local/internal use.
 
-The drawer edits semantic event fields. Users choose a unit/source such as `单位`, `科研`, `评审`,
-`个人`, or `其他`; the unit decides marker shape. The type field decides fill: `持续` is solid and
-`事件` is hollow.
+The drawer edits semantic entry fields. Users choose `日历` or `代办`. Calendar entries keep date,
+optional time, and the existing `事件` / `截止` fill rule; todo entries use their real creation date
+as the calendar anchor, have no time, and render as red dots that intensify by importance. Completed
+todos render as gray hollow dots and leave the sidebar todo list. Clicking outside an open drawer
+closes it.
+
+The sidebar lower panel now shows the top five unfinished todos sorted by importance, creation
+time, and title. Sidebar, common-view, month-calendar, and existing-todo drawer rows include a
+quick `设为已办` action for incomplete todos; completed todos remain visible on their calendar anchor
+date with the gray hollow marker.
+
+The sidebar `后台数据库` button opens the configured remote table in the system default browser. If a
+visual table page cannot be inferred correctly from API IDs, settings can store an explicit
+`后台数据库 URL`; without a mounted remote table the button warns that the database cannot be
+visualized.
+
+The Windows desktop window starts maximized by default.
 
 Attachments are attached to events as metadata. Attachment binary data is stored locally in
 IndexedDB by `LocalAttachmentRepository`; c8table records store `storage`, `localBlobKey`, name,
@@ -46,9 +61,11 @@ Current active change: `harness/changes/active/summary.md`
 - Teable runtime tokens are intentionally local-only via browser local storage, OAuth PKCE session,
   or `VITE_TEABLE_TOKEN`.
 - Teable target: `https://c8table.com`, table `tbl2wWI7diI2vs5anMs`, field key type `name`.
-- The repository creates structured c8table fields for 标题, 日期, 时间, 单位, 类型, 重要性, 完成,
-  备注, 附件, 附件元数据, 本地ID, 创建时间, and 更新时间. Older JSON rows in `单行文本` are migrated
-  into these fields and `单行文本` is rewritten as a readable title mirror.
+- Visual table URLs can be stored locally with `desktopcal.database.url`; this is not used for API
+  sync and only controls the system-browser database shortcut.
+- The repository creates structured c8table fields for 标题, 条目类型, 日期, 时间, 单位, 类型, 重要性,
+  完成, 备注, 附件, 附件元数据, 本地ID, 创建时间, and 更新时间. Older JSON rows in `单行文本` are
+  migrated into these fields and `单行文本` is rewritten as a readable title mirror.
 - Feishu Bitable sync uses the official `/open-apis/bitable/v1/apps/:app_token/tables/:table_id`
   records and fields APIs. The user supplies an access token, app token, and table ID locally.
 - Without a remote configuration, event writes stay fully functional in the local backup database.
@@ -63,11 +80,14 @@ Current active change: `harness/changes/active/summary.md`
 ## Verification
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 9 files / 38 tests.
+- `npm test`: passed, 9 files / 53 tests.
 - `uv run --no-editable desktopcal test`: passed.
 - `uv run --no-editable desktopcal lint`: passed.
 - `uv run --no-editable desktopcal build`: passed and produced the Windows executable plus NSIS
   installer.
+- `java -classpath .\gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain assembleDebug`
+  from `apps/android`: passed. Direct Java invocation avoids `gradlew.bat` classpath issues in this
+  Chinese-path workspace.
 - `powershell -ExecutionPolicy Bypass -File apps\android\build-debug.ps1`: passed and produced a
   debug APK.
 - Android `testDebugUnitTest`: passed with no current unit-test sources.

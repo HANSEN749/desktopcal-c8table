@@ -19,6 +19,9 @@
 - [x] Add completed-state sync across shared types, c8table, web, and Android parsing.
 - [x] Convert time records into a dense current/future list board with collapsed completed history.
 - [x] Add standalone web and packaged-exe OAuth PKCE login and token refresh.
-- [x] Use the sidebar empty area for the nearest-event detail card.
+- [x] Replace the sidebar nearest-event detail card with a top-five unfinished todo panel.
+- [x] Add top-level calendar/todo entry categories with todo red-dot calendar markers.
 - [x] Add local-first storage with selectable c8table or Feishu Bitable sync.
+- [x] Add quick set-as-done controls for todos in sidebar, common view, month calendar, and drawer.
+- [x] Add explicit visual database URL storage for opening the mounted remote table page.
 - [x] Run verification commands and update status.

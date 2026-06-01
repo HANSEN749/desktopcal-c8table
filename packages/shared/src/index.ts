@@ -1,4 +1,5 @@
 export type EventKind = "duration" | "event";
+export type EntryCategory = "calendar" | "todo";
 export type EventShape = "circle" | "triangle" | "square" | "diamond" | "star" | "hexagon";
 export type Importance = 1 | 2 | 3 | 4 | 5;
 export type EntryAttachmentStorage = "local" | "teable";
@@ -41,6 +42,7 @@ export interface Entry {
   title: string;
   date: string;
   time?: string;
+  category: EntryCategory;
   shape: EventShape;
   kind: EventKind;
   importance: Importance;
@@ -100,13 +102,18 @@ export const shapeSymbols: Record<EventShape, string> = {
 };
 
 export const kindLabels: Record<EventKind, string> = {
-  duration: "持续",
+  duration: "截止",
   event: "事件",
 };
 
 export const kindShortLabels: Record<EventKind, string> = {
-  duration: "实",
-  event: "空",
+  duration: "截止",
+  event: "事件",
+};
+
+export const categoryLabels: Record<EntryCategory, string> = {
+  calendar: "日历",
+  todo: "代办",
 };
 
 export const entryUnitProfiles: Record<EntryUnitId, EntryUnitProfile> = {

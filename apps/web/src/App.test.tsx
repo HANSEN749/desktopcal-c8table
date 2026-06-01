@@ -1,5 +1,5 @@
 import type { Entry } from "@desktopcal/shared";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -61,6 +61,112 @@ describe("App event interactions", () => {
     expect(screen.getByLabelText("添加附件")).toBeInTheDocument();
   });
 
+  it("closes the event drawer when clicking outside it", async () => {
+    const today = toDateKey(new Date());
+    render(<App entryRepository={new MemoryEntryRepository()} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.doubleClick(screen.getByTestId(`common-day-${today}`));
+    expect(screen.getByRole("heading", { name: "新增事件" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭事件详情" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "新增事件" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows a database visualization warning when no remote table is mounted", async () => {
+    const storage = window.localStorage;
+    storage.clear();
+    const alertMock = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+
+    render(<App attachmentRepository={makeAttachmentRepository()} storage={storage} />);
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.click(screen.getByRole("button", { name: "进入后台数据库" }));
+
+    expect(alertMock).toHaveBeenCalledWith("尚未挂载多维表格，无法可视化数据库");
+    alertMock.mockRestore();
+  });
+
+  it("opens the mounted c8table database from the sidebar", async () => {
+    const storage = window.localStorage;
+    storage.clear();
+    const openMock = vi.spyOn(window, "open").mockImplementation(() => ({ closed: false }) as Window);
+
+    render(
+      <App
+        entryRepository={new MemoryEntryRepository()}
+        attachmentRepository={makeAttachmentRepository()}
+        storage={storage}
+      />,
+    );
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.click(screen.getByRole("button", { name: "进入后台数据库" }));
+
+    expect(openMock).toHaveBeenCalledWith(
+      "https://c8table.com/table/tbl2wWI7diI2vs5anMs",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openMock.mockRestore();
+  });
+
+  it("opens the saved visual database URL exactly when one is configured", async () => {
+    const storage = window.localStorage;
+    storage.clear();
+    storage.setItem("desktopcal.database.url", "https://c8table.com/base/app123/table/tbl2wWI7diI2vs5anMs/view/viw123");
+    const openMock = vi.spyOn(window, "open").mockImplementation(() => ({ closed: false }) as Window);
+
+    render(
+      <App
+        entryRepository={new MemoryEntryRepository()}
+        attachmentRepository={makeAttachmentRepository()}
+        storage={storage}
+      />,
+    );
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.click(screen.getByRole("button", { name: "进入后台数据库" }));
+
+    expect(openMock).toHaveBeenCalledWith(
+      "https://c8table.com/base/app123/table/tbl2wWI7diI2vs5anMs/view/viw123",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openMock.mockRestore();
+  });
+
+  it("uses the native shell bridge for the database link inside Tauri", async () => {
+    const storage = window.localStorage;
+    storage.clear();
+    const invoke = vi.fn(async () => undefined);
+    Object.assign(window, { __TAURI_INTERNALS__: { invoke } });
+    const openMock = vi.spyOn(window, "open").mockImplementation(() => ({ closed: false }) as Window);
+
+    render(
+      <App
+        entryRepository={new MemoryEntryRepository()}
+        attachmentRepository={makeAttachmentRepository()}
+        storage={storage}
+      />,
+    );
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.click(screen.getByRole("button", { name: "进入后台数据库" }));
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("open_external_url", {
+        url: "https://c8table.com/table/tbl2wWI7diI2vs5anMs",
+      }),
+    );
+    expect(openMock).not.toHaveBeenCalled();
+    delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    openMock.mockRestore();
+  });
+
   it("saves a new drawer event into the month and upcoming list", async () => {
     const today = toDateKey(new Date());
     const repo = new MemoryEntryRepository();
@@ -108,66 +214,206 @@ describe("App event interactions", () => {
     expect(screen.queryByText("范围外旧事项")).not.toBeInTheDocument();
   });
 
-  it("uses the sidebar blank area for the nearest event details", async () => {
+  it("uses the sidebar blank area for pending todos sorted by importance", async () => {
     window.localStorage.clear();
     const today = toDateKey(new Date());
-    const base = new Date(`${today}T00:00:00`);
-    const tomorrow = toDateKey(addDays(base, 1));
     const entries = [
       makeEntry({
-        id: "past",
-        localId: "past",
-        title: "昨天事项",
-        date: toDateKey(addDays(base, -1)),
+        id: "calendar",
+        localId: "calendar",
+        title: "普通日历事件",
+        date: today,
         importance: 5,
       }),
       makeEntry({
-        id: "done",
-        localId: "done",
-        title: "已完成明天事项",
-        date: tomorrow,
+        id: "done-todo",
+        localId: "done-todo",
+        title: "已完成代办",
+        date: today,
+        category: "todo",
         completed: true,
       }),
       makeEntry({
-        id: "nearest",
-        localId: "nearest",
-        title: "最近详情事件",
-        date: tomorrow,
-        time: "09:00",
+        id: "middle-todo",
+        localId: "middle-todo",
+        title: "中优先级代办",
+        date: today,
+        category: "todo",
         unit: "research",
-        kind: "duration",
-        importance: 4,
-        note: "需要带材料",
-        attachments: [
-          {
-            id: "att-1",
-            storage: "local",
-            localBlobKey: "attachment:att-1",
-            name: "detail.png",
-            mime: "image/png",
-            size: 512,
-            createdAt: "2026-05-29T08:00:00.000Z",
-          },
-        ],
+        importance: 3,
+        createdAt: "2026-05-29T09:00:00.000Z",
       }),
       makeEntry({
-        id: "later",
-        localId: "later",
-        title: "更晚事项",
-        date: toDateKey(addDays(base, 3)),
+        id: "high-todo",
+        localId: "high-todo",
+        title: "高优先级代办",
+        date: today,
+        category: "todo",
+        importance: 5,
+        createdAt: "2026-05-29T08:00:00.000Z",
       }),
     ];
     render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
 
-    const card = await screen.findByRole("button", { name: "编辑最近事件：最近详情事件" });
-    expect(card).toHaveTextContent("最近事件");
-    expect(card).toHaveTextContent(tomorrow);
-    expect(card).toHaveTextContent("需要带材料");
-    expect(card).toHaveTextContent("1 个附件");
+    const highTodo = await screen.findByRole("button", { name: "编辑代办：高优先级代办" });
+    const middleTodo = screen.getByRole("button", { name: "编辑代办：中优先级代办" });
+    expect(screen.getByLabelText("代办清单")).toHaveTextContent("未完成待办");
+    expect(screen.queryByText("普通日历事件")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "编辑代办：已完成代办" })).not.toBeInTheDocument();
+    const todoButtons = screen.getAllByRole("button", { name: /编辑代办：/ });
+    expect(todoButtons.indexOf(highTodo)).toBeLessThan(todoButtons.indexOf(middleTodo));
 
-    fireEvent.click(card);
-    expect(await screen.findByRole("heading", { name: "编辑事件" })).toBeInTheDocument();
-    expect(screen.getByLabelText("标题")).toHaveValue("最近详情事件");
+    fireEvent.click(highTodo);
+    expect(await screen.findByRole("heading", { name: "编辑代办" })).toBeInTheDocument();
+    expect(screen.getByLabelText("标题")).toHaveValue("高优先级代办");
+    expect(screen.queryByLabelText("时间")).not.toBeInTheDocument();
+  });
+
+  it("marks a sidebar todo as done from the quick action", async () => {
+    const today = toDateKey(new Date());
+    const repo = new MemoryEntryRepository([
+      makeEntry({
+        id: "todo-sidebar",
+        localId: "todo-sidebar",
+        title: "侧栏待办",
+        date: today,
+        category: "todo",
+        importance: 4,
+      }),
+    ]);
+    render(<App entryRepository={repo} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByRole("button", { name: "编辑代办：侧栏待办" });
+    const todoPanel = screen.getByLabelText("代办清单");
+    fireEvent.click(within(todoPanel).getByRole("button", { name: "设为已办：侧栏待办" }));
+
+    await waitFor(() =>
+      expect(repo.update).toHaveBeenCalledWith(expect.objectContaining({ id: "todo-sidebar", completed: true })),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "编辑代办：侧栏待办" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("marks a common-view todo as done without opening the drawer", async () => {
+    const today = toDateKey(new Date());
+    const repo = new MemoryEntryRepository([
+      makeEntry({
+        id: "todo-common",
+        localId: "todo-common",
+        title: "常用视图待办",
+        date: today,
+        category: "todo",
+      }),
+    ]);
+    render(<App entryRepository={repo} attachmentRepository={makeAttachmentRepository()} />);
+
+    const dayCard = await screen.findByTestId(`common-day-${today}`);
+    fireEvent.click(within(dayCard).getByRole("button", { name: "设为已办：常用视图待办" }));
+
+    await waitFor(() =>
+      expect(repo.update).toHaveBeenCalledWith(expect.objectContaining({ id: "todo-common", completed: true })),
+    );
+    expect(screen.queryByRole("heading", { name: "编辑代办" })).not.toBeInTheDocument();
+  });
+
+  it("marks a month-calendar todo as done from the inline action", async () => {
+    const today = toDateKey(new Date());
+    const repo = new MemoryEntryRepository([
+      makeEntry({
+        id: "todo-month",
+        localId: "todo-month",
+        title: "月历待办",
+        date: today,
+        category: "todo",
+      }),
+    ]);
+    render(<App entryRepository={repo} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByRole("button", { name: "编辑代办：月历待办" });
+    fireEvent.click(screen.getByRole("button", { name: "日历模式" }));
+    const dayCell = await screen.findByTestId(`day-${today}`);
+    fireEvent.click(within(dayCell).getByRole("button", { name: "设为已办：月历待办" }));
+
+    await waitFor(() =>
+      expect(repo.update).toHaveBeenCalledWith(expect.objectContaining({ id: "todo-month", completed: true })),
+    );
+    expect(screen.queryByRole("heading", { name: "编辑代办" })).not.toBeInTheDocument();
+  });
+
+  it("marks an existing drawer todo as done from the title action", async () => {
+    const today = toDateKey(new Date());
+    const repo = new MemoryEntryRepository([
+      makeEntry({
+        id: "todo-drawer",
+        localId: "todo-drawer",
+        title: "已有待办",
+        date: today,
+        category: "todo",
+      }),
+    ]);
+    render(<App entryRepository={repo} attachmentRepository={makeAttachmentRepository()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "编辑代办：已有待办" }));
+    const heading = await screen.findByRole("heading", { name: "编辑代办" });
+    const drawer = heading.closest(".eventDrawer") as HTMLElement;
+    fireEvent.click(within(drawer).getByRole("button", { name: "设为已办：已有待办" }));
+
+    await waitFor(() =>
+      expect(repo.update).toHaveBeenCalledWith(expect.objectContaining({ id: "todo-drawer", completed: true })),
+    );
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "编辑代办" })).not.toBeInTheDocument());
+  });
+
+  it("creates a todo without time and pins it to the real creation date", async () => {
+    const today = toDateKey(new Date());
+    const repo = new MemoryEntryRepository();
+    render(<App entryRepository={repo} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.doubleClick(screen.getByTestId(`common-day-${today}`));
+    fireEvent.click(screen.getByRole("button", { name: "代办" }));
+    expect(screen.queryByLabelText("时间")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("标题"), { target: { value: "整理发票" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "保存" }).at(-1) as HTMLElement);
+
+    await waitFor(() => expect(repo.create).toHaveBeenCalled());
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ category: "todo", time: undefined }));
+    expect(await screen.findByRole("button", { name: "编辑代办：整理发票" })).toBeInTheDocument();
+    await expect(repo.create.mock.results[0]?.value).resolves.toMatchObject({
+      category: "todo",
+      date: today,
+      time: undefined,
+    });
+  });
+
+  it("shows todo markers in the calendar and uses a gray hollow marker when completed", async () => {
+    const today = toDateKey(new Date());
+    const entries = [
+      makeEntry({ id: "todo-open", localId: "todo-open", title: "未完成代办", date: today, category: "todo", importance: 5 }),
+      makeEntry({
+        id: "todo-done",
+        localId: "todo-done",
+        title: "已完成代办",
+        date: today,
+        category: "todo",
+        completed: true,
+        importance: 4,
+      }),
+    ];
+    render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByRole("button", { name: "编辑代办：未完成代办" });
+    fireEvent.click(screen.getByRole("button", { name: "日历模式" }));
+
+    const openMonthTitle = (await screen.findAllByText("未完成代办")).at(-1) as HTMLElement;
+    const doneMonthTitle = (await screen.findAllByText("已完成代办")).at(-1) as HTMLElement;
+    const openMarker = openMonthTitle.closest("button")?.querySelector(".marker");
+    const doneMarker = doneMonthTitle.closest("button")?.querySelector(".marker");
+    expect(openMarker).toHaveTextContent("●");
+    expect(openMarker).toHaveClass("todoLevel5");
+    expect(doneMarker).toHaveTextContent("○");
+    expect(doneMarker).toHaveClass("completed");
   });
 
   it("organizes many time records by pending groups with completed items collapsed", async () => {
@@ -206,7 +452,7 @@ describe("App event interactions", () => {
 
     await screen.findByText("近期暂无事件");
     fireEvent.change(screen.getByLabelText("Quick add title"), {
-      target: { value: "明天 15:30 持续 单位 5星 中央巡检" },
+      target: { value: "明天 15:30 截止 单位 5星 中央巡检" },
     });
     fireEvent.click(screen.getByRole("button", { name: "添加" }));
 
@@ -214,8 +460,25 @@ describe("App event interactions", () => {
     await waitFor(() => expect(screen.getByLabelText("日期")).toHaveValue(toDateKey(tomorrow)));
     expect(screen.getByLabelText("时间")).toHaveValue("15:30");
     expect(screen.getByLabelText("标题")).toHaveValue("中央巡检");
-    expect(screen.getByRole("button", { name: "持续" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "截止" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("单位")).toHaveValue("work");
+  });
+
+  it("parses undated task text as a todo", async () => {
+    render(<App entryRepository={new MemoryEntryRepository()} attachmentRepository={makeAttachmentRepository()} />);
+
+    await screen.findByText("近期暂无事件");
+    fireEvent.change(screen.getByLabelText("Quick add title"), {
+      target: { value: "待办 整理发票 很重要" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+
+    expect(await screen.findByRole("heading", { name: "新增代办" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "代办" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByLabelText("时间")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "截止" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("标题")).toHaveValue("整理发票");
+    expect(screen.getAllByRole("radio")[4]).toHaveAttribute("aria-checked", "true");
   });
 
   it("parses compact weekday, afternoon time, kind, source, and importance locally", async () => {
@@ -227,7 +490,7 @@ describe("App event interactions", () => {
 
     await screen.findByText("近期暂无事件");
     fireEvent.change(screen.getByLabelText("Quick add title"), {
-      target: { value: "下周五下午3点持续单位重要巡检材料" },
+      target: { value: "下周五下午3点截止单位重要巡检材料" },
     });
     fireEvent.click(screen.getByRole("button", { name: "添加" }));
 
@@ -235,7 +498,7 @@ describe("App event interactions", () => {
     expect(screen.getByLabelText("日期")).toHaveValue(toDateKey(new Date(base.getTime() + offset * 86_400_000)));
     expect(screen.getByLabelText("时间")).toHaveValue("15:00");
     expect(screen.getByLabelText("标题")).toHaveValue("巡检材料");
-    expect(screen.getByRole("button", { name: "持续" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "截止" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByRole("radio")[3]).toHaveAttribute("aria-checked", "true");
     expect(screen.getByLabelText("单位")).toHaveValue("work");
   });
@@ -293,7 +556,7 @@ describe("App event interactions", () => {
     await waitFor(() => expect(screen.getByLabelText("日期")).toHaveValue(`${new Date().getFullYear()}-05-30`));
     expect(screen.getByLabelText("时间")).toHaveValue("");
     expect(screen.getByLabelText("单位")).toHaveValue("work");
-    expect(screen.getByRole("button", { name: "持续" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "截止" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByRole("radio")[4]).toHaveAttribute("aria-checked", "true");
     expect(screen.getByLabelText("标题")).toHaveValue("巡视整改台账月度进展情况更新；归还保密文件");
     expect(screen.getByLabelText("备注")).toHaveValue("https://docs.qq.com/sheet/demo");
@@ -359,7 +622,7 @@ describe("App event interactions", () => {
     await waitFor(() => expect(screen.getByLabelText("日期")).toHaveValue("2026-05-29"));
     expect(screen.getByLabelText("时间")).toHaveValue("15:00");
     expect(screen.getByLabelText("标题")).toHaveValue("给领导发巡检材料");
-    expect(screen.getByRole("button", { name: "持续" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "截止" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("AI parsed")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
