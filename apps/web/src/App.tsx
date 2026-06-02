@@ -87,9 +87,10 @@ export interface AppProps {
   entryRepository?: EntryRepository;
   attachmentRepository?: AttachmentRepository;
   storage?: Storage;
+  requireTeableOAuth?: boolean;
 }
 
-export function App({ entryRepository, attachmentRepository, storage }: AppProps = {}) {
+export function App({ entryRepository, attachmentRepository, storage, requireTeableOAuth: requireTeableOAuthProp }: AppProps = {}) {
   const today = useMemo(() => toDateKey(new Date()), []);
   const [tokenRevision, setTokenRevision] = useState(0);
   const runtimeConfig = useMemo(
@@ -126,6 +127,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   const [statusText, setStatusText] = useState("正在读取事件");
   const [saveError, setSaveError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const requireTeableOAuth = requireTeableOAuthProp ?? shouldRequireTeableOAuth(entryRepository);
 
   const remoteConfigured = Boolean(
     entryRepository ||
@@ -417,6 +419,16 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     setAiParserRevision((current) => current + 1);
   }
 
+  if (requireTeableOAuth && !oauthState.connected) {
+    return (
+      <OAuthGate
+        oauthState={oauthState}
+        statusText={saveError ?? statusText}
+        onLoginWithOAuth={loginWithOAuth}
+      />
+    );
+  }
+
   return (
     <AppLayout
       activeView={activeView}
@@ -522,6 +534,52 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
         />
       ) : null}
     </AppLayout>
+  );
+}
+
+interface OAuthGateProps {
+  oauthState: OAuthViewState;
+  statusText: string;
+  onLoginWithOAuth(): Promise<void>;
+}
+
+function OAuthGate({ oauthState, statusText, onLoginWithOAuth }: OAuthGateProps) {
+  const oauthRedirectUri = getTeableOAuthRedirectUri();
+  return (
+    <main className="authGate" aria-label="c8table OAuth required">
+      <section className="authGatePanel">
+        <div className="authGateBrand">
+          <p className="eyebrow">DesktopCal Web</p>
+          <h1>登录 c8table 后继续</h1>
+          <p>网络版使用 c8table 账号授权读取和写入同一张日历表；未登录时不会进入本地备用库。</p>
+        </div>
+        <dl className="authGateMeta">
+          <div>
+            <dt>授权方式</dt>
+            <dd>OAuth 2.0 PKCE</dd>
+          </div>
+          <div>
+            <dt>回调 URL</dt>
+            <dd title={oauthRedirectUri}>{oauthRedirectUri}</dd>
+          </div>
+          <div>
+            <dt>状态</dt>
+            <dd>{statusText}</dd>
+          </div>
+        </dl>
+        <button
+          className="authGateButton"
+          disabled={!oauthState.config.clientId}
+          type="button"
+          onClick={() => void onLoginWithOAuth()}
+        >
+          使用 c8table 登录
+        </button>
+        {!oauthState.config.clientId ? (
+          <p className="authGateWarning">服务器缺少 c8table OAuth Client ID，请先配置部署环境。</p>
+        ) : null}
+      </section>
+    </main>
   );
 }
 
@@ -992,6 +1050,18 @@ function browserStorage(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+function envValue(key: string): string | undefined {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+  return env?.[key]?.trim() || undefined;
+}
+
+function shouldRequireTeableOAuth(entryRepository?: EntryRepository): boolean {
+  if (entryRepository) {
+    return false;
+  }
+  return envValue("VITE_REQUIRE_TEABLE_OAUTH") === "true";
 }
 
 function backendModeLabel(mode: RepositoryMode): string {

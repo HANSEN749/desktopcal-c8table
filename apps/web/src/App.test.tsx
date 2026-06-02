@@ -45,6 +45,22 @@ function makeAttachmentRepository(): AttachmentRepository {
 }
 
 describe("App event interactions", () => {
+  it("requires c8table OAuth before entering the public web app when configured", async () => {
+    const storage = window.localStorage;
+    storage.clear();
+    storage.setItem("desktopcal.teable.oauth.clientId", "client-id");
+    try {
+      render(<App attachmentRepository={makeAttachmentRepository()} requireTeableOAuth storage={storage} />);
+
+      expect(await screen.findByRole("main", { name: "c8table OAuth required" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "登录 c8table 后继续" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "使用 c8table 登录" })).toBeEnabled();
+      expect(screen.queryByText("近期暂无事件")).not.toBeInTheDocument();
+    } finally {
+      storage.clear();
+    }
+  });
+
   it("opens the event drawer on date double-click with that date prefilled", async () => {
     const today = toDateKey(new Date());
     render(<App entryRepository={new MemoryEntryRepository()} attachmentRepository={makeAttachmentRepository()} />);
