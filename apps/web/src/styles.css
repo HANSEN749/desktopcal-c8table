@@ -42,23 +42,90 @@ input:disabled {
 }
 
 .authGate {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 100vh;
-  padding: 32px;
-  background: #eef2f1;
+  padding: 40px;
+  overflow: hidden;
+  background: #f7f9f8;
   color: #202124;
 }
 
-.authGatePanel {
-  display: grid;
-  gap: 22px;
-  width: min(100%, 520px);
-  border: 1px solid #dfe6e3;
+.authGatePattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.82;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.72) 0 42px, transparent 42px 100%),
+    linear-gradient(rgba(255, 255, 255, 0.72) 0 42px, transparent 42px 100%),
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.35), rgba(247, 249, 248, 0.96) 62%);
+  background-position:
+    0 0,
+    0 0,
+    center;
+  background-size:
+    122px 122px,
+    122px 122px,
+    100% 100%;
+}
+
+.authGatePattern::before,
+.authGatePattern::after {
+  position: absolute;
   border-radius: 8px;
-  padding: 28px;
-  background: #ffffff;
-  box-shadow: 0 18px 50px rgba(32, 33, 36, 0.12);
+  background:
+    linear-gradient(90deg, rgba(234, 236, 237, 0.62) 50%, transparent 50%) 0 0 / 122px 122px,
+    linear-gradient(rgba(234, 236, 237, 0.62) 50%, transparent 50%) 0 0 / 122px 122px;
+  content: "";
+}
+
+.authGatePattern::before {
+  inset: 72px 34px 88px 34px;
+  mask-image: linear-gradient(90deg, #000 0 78%, transparent), linear-gradient(#000 0 100%);
+}
+
+.authGatePattern::after {
+  inset: 170px 180px 120px 180px;
+  opacity: 0.42;
+  filter: blur(1px);
+}
+
+.authGateHeader {
+  position: absolute;
+  top: 42px;
+  left: 42px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #080c18;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.authGateLogoMark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #080c18;
+  color: white;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.authGatePanel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 30px;
+  width: min(100%, 980px);
+  padding: 34px 24px;
+  text-align: center;
 }
 
 .authGateBrand h1,
@@ -68,67 +135,53 @@ input:disabled {
 
 .authGateBrand {
   display: grid;
-  gap: 10px;
+  gap: 18px;
+  justify-items: center;
 }
 
 .authGateBrand h1 {
-  font-size: 28px;
-  line-height: 1.15;
+  color: #080c18;
+  font-size: clamp(56px, 11vw, 132px);
+  font-weight: 900;
+  line-height: 0.95;
 }
 
-.authGateBrand p:not(.eyebrow),
-.authGateMeta dd,
-.authGateMeta dt,
+.authGateBrand p:not(.eyebrow) {
+  max-width: 760px;
+  color: #080c18;
+  font-size: clamp(20px, 2.5vw, 34px);
+  line-height: 1.35;
+}
+
+.authGateStatus,
 .authGateWarning {
+  min-height: 20px;
+  margin: 0;
   color: #6f7a80;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.authGateMeta {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-
-.authGateMeta div {
-  display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  gap: 12px;
-}
-
-.authGateMeta dt,
-.authGateMeta dd {
-  margin: 0;
-}
-
-.authGateMeta dt {
-  font-weight: 700;
-}
-
-.authGateMeta dd {
-  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .authGateButton {
-  min-height: 44px;
+  width: min(100%, 360px);
+  min-height: 54px;
   border: 0;
   border-radius: 8px;
-  padding: 0 18px;
-  background: #1f7a68;
+  padding: 0 28px;
+  background: #080c18;
   color: #ffffff;
+  font-size: 17px;
   font-weight: 800;
 }
 
 .authGateButton:not(:disabled):hover,
 .authGateButton:not(:disabled):focus-visible {
-  background: #176454;
-  outline: 2px solid rgba(31, 122, 104, 0.24);
+  background: #1e2430;
+  outline: 2px solid rgba(8, 12, 24, 0.2);
   outline-offset: 3px;
 }
 
 .authGateWarning {
-  margin: 0;
   color: #a33b2f;
 }
 

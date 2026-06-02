@@ -553,29 +553,19 @@ interface OAuthGateProps {
 }
 
 function OAuthGate({ oauthState, statusText, onLoginWithOAuth }: OAuthGateProps) {
-  const oauthRedirectUri = getTeableOAuthRedirectUri();
   return (
     <main className="authGate" aria-label="c8table OAuth required">
+      <div className="authGatePattern" aria-hidden="true" />
+      <header className="authGateHeader">
+        <div className="authGateLogoMark">待</div>
+        <span>待办历</span>
+      </header>
       <section className="authGatePanel">
         <div className="authGateBrand">
-          <p className="eyebrow">DesktopCal Web</p>
-          <h1>登录 c8table 后继续</h1>
-          <p>网络版使用 c8table 账号授权读取和写入同一张日历表；未登录时不会进入本地备用库。</p>
+          <h1>待办历</h1>
+          <p>把待办和日历融合在一起的个人效率 app。</p>
         </div>
-        <dl className="authGateMeta">
-          <div>
-            <dt>授权方式</dt>
-            <dd>OAuth 2.0 PKCE</dd>
-          </div>
-          <div>
-            <dt>回调 URL</dt>
-            <dd title={oauthRedirectUri}>{oauthRedirectUri}</dd>
-          </div>
-          <div>
-            <dt>状态</dt>
-            <dd>{statusText}</dd>
-          </div>
-        </dl>
+        {statusText ? <p className="authGateStatus">{statusText}</p> : null}
         <button
           className="authGateButton"
           disabled={!oauthState.config.clientId}
@@ -585,7 +575,7 @@ function OAuthGate({ oauthState, statusText, onLoginWithOAuth }: OAuthGateProps)
           使用 c8table 登录
         </button>
         {!oauthState.config.clientId ? (
-          <p className="authGateWarning">服务器缺少 c8table OAuth Client ID，请先配置部署环境。</p>
+          <p className="authGateWarning">登录配置暂不可用，请稍后再试。</p>
         ) : null}
       </section>
     </main>
