@@ -7,7 +7,7 @@ import {
   shapeLabels,
   type Entry,
 } from "@desktopcal/shared";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout, type RepositoryMode } from "./components/AppLayout";
 import { CommonScheduleView } from "./components/CommonScheduleView";
 import { EventDrawer } from "./components/EventDrawer";
@@ -18,6 +18,7 @@ import { TimeRecordBoard } from "./components/TimeRecordBoard";
 import { UpcomingList } from "./components/UpcomingList";
 import { addDays, toDateKey } from "./domain/date";
 import { groupUpcomingEntries } from "./domain/upcoming";
+import loginBackgroundUrl from "./assets/login-bg.png";
 import type { AttachmentRepository, EntryDraft, EntryRepository } from "./repositories/EntryRepository";
 import { sortEntries } from "./repositories/EntryRepository";
 import { DEFAULT_FEISHU_BASE_URL } from "./repositories/FeishuBitableEntryRepository";
@@ -555,17 +556,25 @@ interface OAuthGateProps {
 function OAuthGate({ oauthState, statusText, onLoginWithOAuth }: OAuthGateProps) {
   return (
     <main className="authGate" aria-label="c8table OAuth required">
-      <div className="authGatePattern" aria-hidden="true" />
-      <header className="authGateHeader">
-        <div className="authGateLogoMark">待</div>
-        <span>待办历</span>
-      </header>
-      <section className="authGatePanel">
+      <section className="authGateHero" style={{ "--login-bg": `url(${loginBackgroundUrl})` } as CSSProperties}>
+        <header className="authGateHeader">
+          <div className="authGateLogoMark">待</div>
+          <span>待办历</span>
+        </header>
         <div className="authGateBrand">
-          <h1>待办历</h1>
-          <p>把待办和日历融合在一起的个人效率 app。</p>
+          <h1>待办入历，日程成事</h1>
+          <p>把待办清单和日历节奏合在一起，轻量安排每天要做的事。</p>
         </div>
-        {statusText ? <p className="authGateStatus">{statusText}</p> : null}
+      </section>
+      <section className="authGatePanel">
+        <div className="authGateTabs" aria-hidden="true">
+          <span>登录</span>
+          <span>注册</span>
+        </div>
+        <div className="authGateLoginHeader">
+          <h2>登录到您的账户</h2>
+          <p>使用 c8table 账号继续</p>
+        </div>
         <button
           className="authGateButton"
           disabled={!oauthState.config.clientId}

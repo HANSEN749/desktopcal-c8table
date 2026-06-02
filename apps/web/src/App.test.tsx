@@ -53,8 +53,8 @@ describe("App event interactions", () => {
       render(<App attachmentRepository={makeAttachmentRepository()} requireTeableOAuth storage={storage} />);
 
       expect(await screen.findByRole("main", { name: "c8table OAuth required" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "待办历" })).toBeInTheDocument();
-      expect(screen.getByText("把待办和日历融合在一起的个人效率 app。")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "待办入历，日程成事" })).toBeInTheDocument();
+      expect(screen.getByText("把待办清单和日历节奏合在一起，轻量安排每天要做的事。")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "使用 c8table 登录" })).toBeEnabled();
       expect(screen.queryByText("授权方式")).not.toBeInTheDocument();
       expect(screen.queryByText("回调 URL")).not.toBeInTheDocument();
