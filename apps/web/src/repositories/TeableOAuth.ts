@@ -2,6 +2,8 @@ import { DEFAULT_TEABLE_BASE_URL } from "./TeableJsonEntryRepository";
 
 export const TEABLE_OAUTH_CLIENT_ID_STORAGE_KEY = "desktopcal.teable.oauth.clientId";
 export const TEABLE_OAUTH_SESSION_STORAGE_KEY = "desktopcal.teable.oauth.session";
+export const TEABLE_OAUTH_ACCOUNTS_STORAGE_KEY = "desktopcal.teable.oauth.accounts";
+export const TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY = "desktopcal.teable.oauth.activeAccount";
 const TEABLE_OAUTH_STATE_STORAGE_KEY = "desktopcal.teable.oauth.state";
 const TEABLE_OAUTH_VERIFIER_STORAGE_KEY = "desktopcal.teable.oauth.verifier";
 const TEABLE_OAUTH_REDIRECT_STORAGE_KEY = "desktopcal.teable.oauth.redirectUri";
@@ -14,7 +16,15 @@ const defaultScopes = [
   "record|create",
   "record|update",
   "record|delete",
+  "user|email_read",
 ];
+
+export interface TeableOAuthUser {
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+}
 
 export interface TeableOAuthSession {
   accessToken: string;
@@ -22,6 +32,16 @@ export interface TeableOAuthSession {
   expiresAt: number;
   refreshExpiresAt: number;
   scopes: string[];
+  user?: TeableOAuthUser;
+}
+
+export interface TeableOAuthAccount {
+  id: string;
+  user: TeableOAuthUser;
+  session: TeableOAuthSession;
+  baseUrl: string;
+  clientId: string;
+  updatedAt: string;
 }
 
 export interface TeableOAuthConfig {
@@ -78,6 +98,10 @@ export function readTeableOAuthConfig(storage = browserStorage()): TeableOAuthCo
 }
 
 export function readTeableOAuthSession(storage = browserStorage()): TeableOAuthSession | undefined {
+  const active = readActiveTeableOAuthAccount(storage);
+  if (active) {
+    return active.session;
+  }
   const raw = storage?.getItem(TEABLE_OAUTH_SESSION_STORAGE_KEY);
   if (!raw) {
     return undefined;
@@ -96,6 +120,7 @@ export function readTeableOAuthSession(storage = browserStorage()): TeableOAuthS
         expiresAt: parsed.expiresAt,
         refreshExpiresAt: parsed.refreshExpiresAt,
         scopes: Array.isArray(parsed.scopes) ? parsed.scopes.filter((scope) => typeof scope === "string") : [],
+        user: normalizeOAuthUser(parsed.user),
       };
     }
   } catch {
@@ -105,7 +130,15 @@ export function readTeableOAuthSession(storage = browserStorage()): TeableOAuthS
 }
 
 export function clearTeableOAuthSession(storage = browserStorage()): void {
-  storage?.removeItem(TEABLE_OAUTH_SESSION_STORAGE_KEY);
+  if (!storage) {
+    return;
+  }
+  const account = readActiveTeableOAuthAccount(storage);
+  if (account) {
+    removeTeableOAuthAccount(account.id, storage);
+    return;
+  }
+  storage.removeItem(TEABLE_OAUTH_SESSION_STORAGE_KEY);
 }
 
 export function readFreshOAuthAccessToken(storage = browserStorage(), now = Date.now()): string | undefined {
@@ -180,7 +213,9 @@ export async function completeTeableOAuthCallback(
     code_verifier: verifier,
     redirect_uri: redirectUri,
   });
-  saveOAuthTokenResponse(token, storage);
+  const session = toOAuthSession(token);
+  const user = await fetchTeableOAuthUser(config.baseUrl, session.accessToken, fetcher);
+  saveTeableOAuthAccount({ session: { ...session, user }, user, config, storage });
   storage.removeItem(TEABLE_OAUTH_STATE_STORAGE_KEY);
   storage.removeItem(TEABLE_OAUTH_VERIFIER_STORAGE_KEY);
   storage.removeItem(TEABLE_OAUTH_REDIRECT_STORAGE_KEY);
@@ -211,20 +246,205 @@ export async function ensureFreshTeableOAuthToken(
     refresh_token: session.refreshToken,
     client_id: config.clientId,
   });
-  saveOAuthTokenResponse(token, storage);
+  const nextSession = toOAuthSession(token, session.user);
+  const activeAccount = readActiveTeableOAuthAccount(storage);
+  if (activeAccount && session.user) {
+    saveTeableOAuthAccount({
+      session: nextSession,
+      user: session.user,
+      config,
+      storage,
+    });
+  } else {
+    saveLegacyOAuthSession(nextSession, storage);
+  }
   return token.access_token;
 }
 
-function saveOAuthTokenResponse(token: OAuthTokenResponse, storage: Storage): void {
+export function readTeableOAuthAccounts(storage = browserStorage()): TeableOAuthAccount[] {
+  if (!storage) {
+    return [];
+  }
+  const raw = storage.getItem(TEABLE_OAUTH_ACCOUNTS_STORAGE_KEY);
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .map(normalizeOAuthAccount)
+      .filter((account): account is TeableOAuthAccount => Boolean(account));
+  } catch {
+    return [];
+  }
+}
+
+export function readActiveTeableOAuthAccount(storage = browserStorage()): TeableOAuthAccount | undefined {
+  const accounts = readTeableOAuthAccounts(storage);
+  const activeId = storage?.getItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY)?.trim();
+  return accounts.find((account) => account.id === activeId) ?? accounts[0];
+}
+
+export function switchTeableOAuthAccount(accountId: string, storage = browserStorage()): void {
+  if (!storage) {
+    return;
+  }
+  const account = readTeableOAuthAccounts(storage).find((item) => item.id === accountId);
+  if (!account) {
+    return;
+  }
+  storage.setItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY, account.id);
+  saveLegacyOAuthSession(account.session, storage);
+}
+
+export function removeTeableOAuthAccount(accountId: string, storage = browserStorage()): void {
+  if (!storage) {
+    return;
+  }
+  const accounts = readTeableOAuthAccounts(storage).filter((account) => account.id !== accountId);
+  storage.setItem(TEABLE_OAUTH_ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+  const activeId = storage.getItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY);
+  if (activeId === accountId) {
+    const next = accounts[0];
+    if (next) {
+      storage.setItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY, next.id);
+      saveLegacyOAuthSession(next.session, storage);
+    } else {
+      storage.removeItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY);
+      storage.removeItem(TEABLE_OAUTH_SESSION_STORAGE_KEY);
+    }
+  }
+}
+
+export function oauthAccountStorageScope(account: TeableOAuthAccount | undefined): string {
+  return account ? `teable-${safeStorageSegment(account.id)}` : "default";
+}
+
+export async function fetchTeableOAuthUser(
+  baseUrl: string,
+  accessToken: string,
+  fetcher: Fetcher = globalThis.fetch.bind(globalThis),
+): Promise<TeableOAuthUser> {
+  const response = await fetcher(`${baseUrl.replace(/\/$/, "")}/api/auth/user`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`c8table OAuth 用户信息读取失败 (${response.status}): ${message || response.statusText}`);
+  }
+  const user = normalizeOAuthUser(await response.json());
+  if (!user) {
+    throw new Error("c8table OAuth 用户信息格式无效");
+  }
+  return user;
+}
+
+function saveTeableOAuthAccount({
+  session,
+  user,
+  config,
+  storage,
+}: {
+  session: TeableOAuthSession;
+  user: TeableOAuthUser;
+  config: TeableOAuthConfig;
+  storage: Storage;
+}): void {
+  const account: TeableOAuthAccount = {
+    id: user.id,
+    user,
+    session: { ...session, user },
+    baseUrl: config.baseUrl,
+    clientId: config.clientId ?? "",
+    updatedAt: new Date().toISOString(),
+  };
+  const accounts = readTeableOAuthAccounts(storage).filter((item) => item.id !== account.id);
+  accounts.unshift(account);
+  storage.setItem(TEABLE_OAUTH_ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+  storage.setItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY, account.id);
+  saveLegacyOAuthSession(account.session, storage);
+}
+
+function toOAuthSession(token: OAuthTokenResponse, user?: TeableOAuthUser): TeableOAuthSession {
   const now = Date.now();
-  const session: TeableOAuthSession = {
+  return {
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
     expiresAt: now + token.expires_in * 1000,
     refreshExpiresAt: now + token.refresh_expires_in * 1000,
     scopes: token.scopes ?? [],
+    user,
   };
+}
+
+function saveLegacyOAuthSession(session: TeableOAuthSession, storage: Storage): void {
   storage.setItem(TEABLE_OAUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+function normalizeOAuthAccount(value: unknown): TeableOAuthAccount | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const raw = value as Partial<TeableOAuthAccount>;
+  const user = normalizeOAuthUser(raw.user);
+  const session = normalizeOAuthSession(raw.session);
+  if (!user || !session || typeof raw.baseUrl !== "string" || typeof raw.clientId !== "string") {
+    return undefined;
+  }
+  return {
+    id: user.id,
+    user,
+    session: { ...session, user },
+    baseUrl: raw.baseUrl,
+    clientId: raw.clientId,
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : new Date(0).toISOString(),
+  };
+}
+
+function normalizeOAuthSession(value: unknown): TeableOAuthSession | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const raw = value as Partial<TeableOAuthSession>;
+  if (
+    typeof raw.accessToken !== "string" ||
+    typeof raw.refreshToken !== "string" ||
+    typeof raw.expiresAt !== "number" ||
+    typeof raw.refreshExpiresAt !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    accessToken: raw.accessToken,
+    refreshToken: raw.refreshToken,
+    expiresAt: raw.expiresAt,
+    refreshExpiresAt: raw.refreshExpiresAt,
+    scopes: Array.isArray(raw.scopes) ? raw.scopes.filter((scope) => typeof scope === "string") : [],
+    user: normalizeOAuthUser(raw.user),
+  };
+}
+
+function normalizeOAuthUser(value: unknown): TeableOAuthUser | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const raw = value as Partial<TeableOAuthUser>;
+  if (typeof raw.id !== "string" || !raw.id.trim() || typeof raw.name !== "string") {
+    return undefined;
+  }
+  return {
+    id: raw.id.trim(),
+    name: raw.name.trim() || raw.email?.trim() || raw.id.trim(),
+    email: typeof raw.email === "string" && raw.email.trim() ? raw.email.trim() : undefined,
+    avatar: typeof raw.avatar === "string" && raw.avatar.trim() ? raw.avatar.trim() : undefined,
+  };
+}
+
+function safeStorageSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80) || "default";
 }
 
 async function requestOAuthToken(

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LocalEntryRepository } from "./LocalEntryRepository";
+import { TEABLE_OAUTH_ACCOUNTS_STORAGE_KEY, TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY } from "./TeableOAuth";
 import {
   createDefaultEntryRepository,
   readRuntimeRepositoryConfig,
@@ -70,5 +71,37 @@ describe("runtime repository config", () => {
 
     saveStoredDatabaseUrl("", storage);
     expect(readRuntimeRepositoryConfig(storage).databaseUrl).toBeUndefined();
+  });
+
+  it("derives local fallback storage scope from the active OAuth account", () => {
+    const storage = window.localStorage;
+    storage.clear();
+    const expiresAt = Date.now() + 120_000;
+    storage.setItem(
+      TEABLE_OAUTH_ACCOUNTS_STORAGE_KEY,
+      JSON.stringify([
+        {
+          id: "usr-tenant-a",
+          user: { id: "usr-tenant-a", name: "Tenant A" },
+          session: {
+            accessToken: "oauth-access",
+            refreshToken: "oauth-refresh",
+            expiresAt,
+            refreshExpiresAt: expiresAt + 30 * 86_400_000,
+            scopes: ["record|read"],
+          },
+          baseUrl: "https://c8table.com",
+          clientId: "client-1",
+          updatedAt: "2026-06-01T00:00:00.000Z",
+        },
+      ]),
+    );
+    storage.setItem(TEABLE_OAUTH_ACTIVE_ACCOUNT_STORAGE_KEY, "usr-tenant-a");
+
+    expect(readRuntimeRepositoryConfig(storage)).toMatchObject({
+      provider: "teable",
+      teableToken: "oauth-access",
+      localStorageScope: "teable-usr-tenant-a",
+    });
   });
 });

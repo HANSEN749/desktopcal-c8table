@@ -49,6 +49,9 @@ local IndexedDB until the target Teable table gains an attachment field.
 - API token handling is runtime/local only and no secret is committed to tracked files.
 - The standalone web build and packaged Windows executable support c8table OAuth 2.0 PKCE login
   with a locally configured OAuth Client ID; browser clients never store an OAuth client secret.
+- c8table OAuth sessions identify the authorized user via Teable's access-token user endpoint,
+  support multiple saved OAuth accounts, and isolate local fallback/cache databases per active
+  account so cross-device sync can later operate without cross-account data bleed.
 - The sidebar `后台数据库` entry opens the configured remote table in the system default browser,
   and settings allow an explicit visual database URL because API table IDs alone are not enough to
   reliably reconstruct every c8table/Feishu UI route.

@@ -24,4 +24,5 @@
 - [x] Add local-first storage with selectable c8table or Feishu Bitable sync.
 - [x] Add quick set-as-done controls for todos in sidebar, common view, month calendar, and drawer.
 - [x] Add explicit visual database URL storage for opening the mounted remote table page.
+- [x] Add c8table OAuth user/account management and account-scoped local isolation.
 - [x] Run verification commands and update status.

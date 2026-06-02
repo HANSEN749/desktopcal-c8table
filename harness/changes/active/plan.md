@@ -16,6 +16,8 @@
 - Add completed-state sync and convert `时间记录` into a high-density current/future list board.
 - Add standalone web and packaged-exe OAuth PKCE login so browser clients can use c8table OAuth
   access tokens instead of manually entered API tokens.
+- Add OAuth account discovery, account switching, and account-scoped local cache/attachment
+  databases so c8table-backed multi-device sync has a user boundary before conflict handling grows.
 - Add a top-level `日历` / `代办` category across shared types, c8table, Feishu, web UI, quick add,
   and Android parsing; show todo entries as red-dot calendar items and replace the sidebar nearest
   event card with an importance-sorted todo panel.

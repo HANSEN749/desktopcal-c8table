@@ -29,9 +29,14 @@ import {
   completeTeableOAuthCallback,
   ensureFreshTeableOAuthToken,
   getTeableOAuthRedirectUri,
+  readActiveTeableOAuthAccount,
+  readTeableOAuthAccounts,
   readTeableOAuthConfig,
   readTeableOAuthSession,
+  removeTeableOAuthAccount,
   saveStoredOAuthClientId,
+  switchTeableOAuthAccount,
+  type TeableOAuthAccount,
   type TeableOAuthConfig,
 } from "./repositories/TeableOAuth";
 import {
@@ -74,6 +79,8 @@ interface OAuthViewState {
   config: TeableOAuthConfig;
   connected: boolean;
   expiresAt?: number;
+  activeAccount?: TeableOAuthAccount;
+  accounts: TeableOAuthAccount[];
 }
 
 export interface AppProps {
@@ -91,8 +98,10 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   );
   const oauthState = useMemo(() => readOAuthViewState(storage), [storage, tokenRevision]);
   const attachments = useMemo(
-    () => attachmentRepository ?? new LocalAttachmentRepository(),
-    [attachmentRepository],
+    () =>
+      attachmentRepository ??
+      new LocalAttachmentRepository(`desktopcal-local-attachments-${runtimeConfig.localStorageScope}`),
+    [attachmentRepository, runtimeConfig.localStorageScope],
   );
   const [unitProfiles, setUnitProfiles] = useState<UnitProfileMap>(() => readStoredUnitProfiles(storage));
   const [aiParserRevision, setAiParserRevision] = useState(0);
@@ -367,6 +376,18 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     setStatusText("c8table OAuth 已退出");
   }
 
+  function switchOAuthAccount(accountId: string) {
+    switchTeableOAuthAccount(accountId, storage);
+    setTokenRevision((current) => current + 1);
+    setStatusText("已切换 c8table OAuth 账号");
+  }
+
+  function removeOAuthAccount(accountId: string) {
+    removeTeableOAuthAccount(accountId, storage);
+    setTokenRevision((current) => current + 1);
+    setStatusText("已移除 c8table OAuth 账号");
+  }
+
   function updateUnitProfileLabel(id: EntryUnitId, label: string) {
     setUnitProfiles((current) => {
       const next = {
@@ -492,6 +513,8 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           onSaveOAuthClientId={saveOAuthClientId}
           onLoginWithOAuth={loginWithOAuth}
           onLogoutOAuth={logoutOAuth}
+          onSwitchOAuthAccount={switchOAuthAccount}
+          onRemoveOAuthAccount={removeOAuthAccount}
           onSaveAiParserConfig={saveAiParserConfig}
           onClearAiParserToken={clearAiParserToken}
           onUnitProfileLabelChange={updateUnitProfileLabel}
@@ -519,6 +542,8 @@ interface SettingsViewProps {
   onSaveOAuthClientId(clientId: string): void;
   onLoginWithOAuth(): Promise<void>;
   onLogoutOAuth(): void;
+  onSwitchOAuthAccount(accountId: string): void;
+  onRemoveOAuthAccount(accountId: string): void;
   onSaveAiParserConfig(config: AiParserConfig): void;
   onClearAiParserToken(): void;
   onUnitProfileLabelChange(id: EntryUnitId, label: string): void;
@@ -542,6 +567,8 @@ function SettingsView({
   onSaveOAuthClientId,
   onLoginWithOAuth,
   onLogoutOAuth,
+  onSwitchOAuthAccount,
+  onRemoveOAuthAccount,
   onSaveAiParserConfig,
   onClearAiParserToken,
   onUnitProfileLabelChange,
@@ -817,11 +844,41 @@ function SettingsView({
               <dt>状态</dt>
               <dd>
                 {oauthState.connected && oauthState.expiresAt
-                  ? `已连接，${new Date(oauthState.expiresAt).toLocaleTimeString()} 前刷新`
+                  ? `已连接：${oauthAccountLabel(oauthState.activeAccount)}，${new Date(
+                      oauthState.expiresAt,
+                    ).toLocaleTimeString()} 前刷新`
                   : "未连接"}
               </dd>
             </div>
+            <div>
+              <dt>本地隔离</dt>
+              <dd>{runtimeConfig.localStorageScope}</dd>
+            </div>
           </dl>
+          {oauthState.accounts.length > 0 ? (
+            <div className="oauthAccountList" aria-label="OAuth accounts">
+              {oauthState.accounts.map((account) => (
+                <div className="oauthAccountRow" key={account.id}>
+                  <button
+                    aria-pressed={oauthState.activeAccount?.id === account.id}
+                    className={oauthState.activeAccount?.id === account.id ? "oauthAccount active" : "oauthAccount"}
+                    type="button"
+                    onClick={() => onSwitchOAuthAccount(account.id)}
+                  >
+                    <strong>{oauthAccountLabel(account)}</strong>
+                    <span>{account.user.email ?? account.id}</span>
+                  </button>
+                  <button
+                    className="smallTextButton"
+                    type="button"
+                    onClick={() => onRemoveOAuthAccount(account.id)}
+                  >
+                    移除
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <form className="settingsTokenForm oauthClientForm" onSubmit={submitOAuthClientId}>
             <input
               aria-label="Teable OAuth Client ID"
@@ -1016,11 +1073,21 @@ function saveStoredAiParserConfig(config: AiParserConfig, storage = browserStora
 function readOAuthViewState(storage = browserStorage()): OAuthViewState {
   const config = readTeableOAuthConfig(storage);
   const session = readTeableOAuthSession(storage);
+  const activeAccount = readActiveTeableOAuthAccount(storage);
   return {
     config,
     connected: Boolean(session && session.refreshExpiresAt > Date.now()),
     expiresAt: session?.expiresAt,
+    activeAccount,
+    accounts: readTeableOAuthAccounts(storage),
   };
+}
+
+function oauthAccountLabel(account: TeableOAuthAccount | undefined): string {
+  if (!account) {
+    return "未识别账号";
+  }
+  return account.user.name || account.user.email || account.id;
 }
 
 function mergeUnitProfiles(

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 ## Current State
 
@@ -20,6 +20,9 @@ time, and completed items move into a collapsed history group.
 The same React/Vite UI can run as a standalone web app or inside the Windows executable. OAuth login
 supports c8table OAuth 2.0 PKCE with an OAuth Client ID from settings or
 `VITE_TEABLE_OAUTH_CLIENT_ID`; manual API token entry remains available for local/internal use.
+OAuth login now reads the current c8table user from the access token, stores multiple authorized
+accounts locally, supports switching/removing saved OAuth accounts, and derives local IndexedDB
+event/attachment database names from the active account to prevent cross-account cache bleed.
 
 The drawer edits semantic entry fields. Users choose `日历` or `代办`. Calendar entries keep date,
 optional time, and the existing `事件` / `截止` fill rule; todo entries use their real creation date
@@ -80,7 +83,7 @@ Current active change: `harness/changes/active/summary.md`
 ## Verification
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 9 files / 53 tests.
+- `npm test`: passed, 9 files / 56 tests.
 - `uv run --no-editable desktopcal test`: passed.
 - `uv run --no-editable desktopcal lint`: passed.
 - `uv run --no-editable desktopcal build`: passed and produced the Windows executable plus NSIS

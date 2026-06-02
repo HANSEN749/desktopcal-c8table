@@ -12,7 +12,12 @@ import {
   TeableJsonEntryRepository,
   type TeableJsonEntryRepositoryOptions,
 } from "./TeableJsonEntryRepository";
-import { readFreshOAuthAccessToken } from "./TeableOAuth";
+import {
+  oauthAccountStorageScope,
+  readActiveTeableOAuthAccount,
+  readFreshOAuthAccessToken,
+  type TeableOAuthAccount,
+} from "./TeableOAuth";
 
 export type RepositoryProvider = "local" | "teable" | "feishu";
 
@@ -38,6 +43,8 @@ export interface RuntimeRepositoryConfig {
   teableTableId: string;
   databaseUrl?: string;
   feishu: FeishuRuntimeConfig;
+  activeOAuthAccount?: TeableOAuthAccount;
+  localStorageScope: string;
 }
 
 function browserStorage(): Storage | undefined {
@@ -134,19 +141,23 @@ function saveOptionalStorageValue(storage: Storage, key: string, value: string |
 }
 
 export function readRuntimeRepositoryConfig(storage = browserStorage()): RuntimeRepositoryConfig {
+  const activeOAuthAccount = readActiveTeableOAuthAccount(storage);
   const teableToken = readStoredTeableToken(storage) ?? readFreshOAuthAccessToken(storage) ?? envValue("VITE_TEABLE_TOKEN");
   const feishu = readStoredFeishuConfig(storage);
   const storedProvider = readStoredRepositoryProvider(storage);
   const provider =
     storedProvider ??
     (teableToken ? "teable" : feishu.accessToken && feishu.appToken && feishu.tableId ? "feishu" : "local");
+  const teableTableId = envValue("VITE_TEABLE_TABLE_ID") ?? DEFAULT_TEABLE_TABLE_ID;
   return {
     provider,
     teableToken,
     teableBaseUrl: envValue("VITE_TEABLE_BASE_URL") ?? DEFAULT_TEABLE_BASE_URL,
-    teableTableId: envValue("VITE_TEABLE_TABLE_ID") ?? DEFAULT_TEABLE_TABLE_ID,
+    teableTableId,
     databaseUrl: readStoredDatabaseUrl(storage),
     feishu,
+    activeOAuthAccount,
+    localStorageScope: runtimeLocalStorageScope(provider, activeOAuthAccount, teableTableId, feishu),
   };
 }
 
@@ -161,9 +172,28 @@ export function createDefaultEntryRepository(
   config = readRuntimeRepositoryConfig(),
   options: DefaultEntryRepositoryOptions = {},
 ): EntryRepository {
-  const local = options.localRepository ?? new LocalEntryRepository();
+  const local = options.localRepository ?? new LocalEntryRepository(`desktopcal-local-events-${config.localStorageScope}`);
   const remote = createRemoteRepository(config, options);
   return new LocalFirstEntryRepository(local, remote);
+}
+
+function runtimeLocalStorageScope(
+  provider: RepositoryProvider,
+  activeOAuthAccount: TeableOAuthAccount | undefined,
+  teableTableId: string,
+  feishu: FeishuRuntimeConfig,
+): string {
+  if (provider === "teable") {
+    return activeOAuthAccount ? oauthAccountStorageScope(activeOAuthAccount) : `teable-token-${safeStorageSegment(teableTableId)}`;
+  }
+  if (provider === "feishu") {
+    return `feishu-${safeStorageSegment(`${feishu.appToken ?? "app"}-${feishu.tableId ?? "table"}`)}`;
+  }
+  return "local";
+}
+
+function safeStorageSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80) || "default";
 }
 
 function createRemoteRepository(
