@@ -29,6 +29,10 @@ local IndexedDB until the target Teable table gains an attachment field.
 - The main navigation separates `常用视图` and `日历模式`, with `常用视图` as the default.
 - `常用视图` shows a rolling window from 3 days before today through 11 days after today, using
   larger day cards that can display at least 10 events per day before overflow summary text.
+- `常用视图` and companion clients show the next explicit-date calendar event as the next
+  uncompleted calendar entry after the current minute; same-day events whose `HH:mm` time has
+  already passed are skipped, todos are excluded, and future dated entries without time remain
+  eligible after timed entries on the same date.
 - `日历模式` keeps the month grid but uses denser cells that show multiple event titles, times, and
   markers instead of only the first title.
 - `时间记录` is a compact list board for large event volumes, grouping unfinished current/future
@@ -60,7 +64,8 @@ local IndexedDB until the target Teable table gains an attachment field.
 - Cross-device contracts are schema-first and use the same `desktopcal.entry.v1` event model for
   desktop, c8table, and the future Android app.
 - The first Android package can be built locally as a debug APK and provides token storage, c8table
-  event listing, and quick event creation against the same table.
+  event listing, quick event creation against the same table, and the same next-future explicit
+  date event cue as the desktop/web common view.
 - macOS Apple Silicon packaging has a reproducible GitHub Actions workflow that runs on macOS and
   emits a DMG artifact.
 

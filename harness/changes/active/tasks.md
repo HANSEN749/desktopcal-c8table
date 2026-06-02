@@ -25,4 +25,5 @@
 - [x] Add quick set-as-done controls for todos in sidebar, common view, month calendar, and drawer.
 - [x] Add explicit visual database URL storage for opening the mounted remote table page.
 - [x] Add c8table OAuth user/account management and account-scoped local isolation.
+- [x] Mirror the next-future explicit-date event cue across desktop/web/mac-shared UI and Android.
 - [x] Run verification commands and update status.

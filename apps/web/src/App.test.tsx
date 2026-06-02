@@ -214,6 +214,63 @@ describe("App event interactions", () => {
     expect(screen.queryByText("范围外旧事项")).not.toBeInTheDocument();
   });
 
+  it("shows the next dated calendar event in the common header", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-02T22:00:00"));
+    try {
+      const today = toDateKey(new Date());
+      const base = new Date(`${today}T00:00:00`);
+      const nextDate = toDateKey(addDays(base, 1));
+      const laterDate = toDateKey(addDays(base, 3));
+      const entries = [
+        makeEntry({
+          id: "todo",
+          localId: "todo",
+          title: "高优先级待办",
+          date: today,
+          category: "todo",
+          importance: 5,
+        }),
+        makeEntry({
+          id: "past-morning",
+          localId: "past-morning",
+          title: "今天早上已过事件",
+          date: today,
+          time: "09:00",
+        }),
+        makeEntry({
+          id: "past-night",
+          localId: "past-night",
+          title: "今天晚上已过事件",
+          date: today,
+          time: "20:00",
+        }),
+        makeEntry({
+          id: "later",
+          localId: "later",
+          title: "稍后的明确事件",
+          date: laterDate,
+          time: "09:00",
+        }),
+        makeEntry({
+          id: "next",
+          localId: "next",
+          title: "下一个明确事件",
+          date: nextDate,
+          time: "08:25",
+        }),
+      ];
+      render(<App entryRepository={new MemoryEntryRepository(entries)} attachmentRepository={makeAttachmentRepository()} />);
+
+      expect(await screen.findByRole("button", { name: /下一个明确日期事件/ })).toHaveTextContent("下一个明确事件");
+      expect(screen.getByRole("button", { name: /下一个明确日期事件/ })).toHaveTextContent("明天 08:25");
+      expect(screen.getByRole("button", { name: /下一个明确日期事件/ })).not.toHaveTextContent("今天早上已过事件");
+      expect(screen.getByRole("button", { name: /下一个明确日期事件/ })).not.toHaveTextContent("高优先级待办");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("uses the sidebar blank area for pending todos sorted by importance", async () => {
     window.localStorage.clear();
     const today = toDateKey(new Date());
@@ -258,7 +315,7 @@ describe("App event interactions", () => {
     const highTodo = await screen.findByRole("button", { name: "编辑代办：高优先级代办" });
     const middleTodo = screen.getByRole("button", { name: "编辑代办：中优先级代办" });
     expect(screen.getByLabelText("代办清单")).toHaveTextContent("未完成待办");
-    expect(screen.queryByText("普通日历事件")).toBeInTheDocument();
+    expect(screen.getAllByText("普通日历事件").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "编辑代办：已完成代办" })).not.toBeInTheDocument();
     const todoButtons = screen.getAllByRole("button", { name: /编辑代办：/ });
     expect(todoButtons.indexOf(highTodo)).toBeLessThan(todoButtons.indexOf(middleTodo));

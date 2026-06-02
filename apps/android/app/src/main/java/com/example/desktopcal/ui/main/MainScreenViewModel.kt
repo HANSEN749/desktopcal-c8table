@@ -15,6 +15,9 @@ import com.example.desktopcal.data.MobileEntry
 import com.example.desktopcal.data.TeableRepository
 import com.example.desktopcal.data.UNIT_WORK
 import com.example.desktopcal.data.todayKey
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 class MainScreenViewModel(application: Application) : AndroidViewModel(application) {
@@ -72,6 +75,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     uiState = uiState.copy(draftImportance = value.coerceIn(1, 5))
   }
 
+  fun updateQuickText(value: String) {
+    uiState = uiState.copy(quickText = value)
+  }
+
   fun refresh() {
     val token = uiState.token.trim()
     if (token.isBlank()) {
@@ -122,6 +129,77 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
   }
+
+  fun createQuickEntry(category: String) {
+    val token = uiState.token.trim()
+    val text = uiState.quickText.trim()
+    if (token.isBlank()) {
+      uiState = uiState.copy(error = "请先在桌面/Web 完成 c8table OAuth 配置并同步")
+      return
+    }
+    if (text.isBlank()) {
+      uiState = uiState.copy(error = "请输入要添加的日历或待办")
+      return
+    }
+    val draft = parseQuickDraft(text, category)
+    viewModelScope.launch {
+      uiState = uiState.copy(isLoading = true, error = null)
+      runCatching { repository.createEntry(token, draft) }
+        .onSuccess {
+          uiState = uiState.copy(quickText = "", isLoading = false)
+          refresh()
+        }
+        .onFailure { error ->
+          uiState = uiState.copy(isLoading = false, error = error.message ?: "新增失败")
+        }
+    }
+  }
+
+  private fun parseQuickDraft(text: String, requestedCategory: String): EntryDraft {
+    val inferredTodo = text.contains("待办") || text.contains("代办") || text.contains("任务")
+    val category = if (requestedCategory == CATEGORY_TODO || inferredTodo) CATEGORY_TODO else CATEGORY_CALENDAR
+    val date = if (category == CATEGORY_TODO) todayKey() else parseQuickDate(text)
+    val time = if (category == CATEGORY_TODO) "" else parseQuickTime(text)
+    val title = text
+      .replace("待办", "")
+      .replace("代办", "")
+      .replace("任务", "")
+      .replace(Regex("""\d{1,2}[:：]\d{2}"""), "")
+      .replace(Regex("""(今天|明天|后天|\d{1,2}月\d{1,2}[日号]?)"""), "")
+      .trim()
+      .ifBlank { text }
+    return EntryDraft(
+      title = title,
+      category = category,
+      date = date,
+      time = time,
+      unit = UNIT_WORK,
+      kind = KIND_EVENT,
+      importance = when {
+        text.contains("紧急") -> 5
+        text.contains("重要") -> 4
+        else -> 3
+      },
+    )
+  }
+
+  private fun parseQuickDate(text: String): String {
+    val calendar = Calendar.getInstance(Locale.CHINA)
+    when {
+      text.contains("后天") -> calendar.add(Calendar.DATE, 2)
+      text.contains("明天") -> calendar.add(Calendar.DATE, 1)
+    }
+    Regex("""(\d{1,2})月(\d{1,2})(?:日|号)?""").find(text)?.let { match ->
+      calendar.set(Calendar.MONTH, match.groupValues[1].toInt() - 1)
+      calendar.set(Calendar.DAY_OF_MONTH, match.groupValues[2].toInt())
+    }
+    return SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(calendar.time)
+  }
+
+  private fun parseQuickTime(text: String): String =
+    Regex("""(\d{1,2})[:：](\d{2})""").find(text)?.let { match ->
+      "${match.groupValues[1].padStart(2, '0')}:${match.groupValues[2]}"
+    }.orEmpty()
 }
 
 data class MainScreenUiState(
@@ -137,6 +215,7 @@ data class MainScreenUiState(
   val draftUnit: String = UNIT_WORK,
   val draftKind: String = KIND_EVENT,
   val draftImportance: Int = 3,
+  val quickText: String = "",
 )
 
 private const val TOKEN_KEY = "desktopcal.teable.token"

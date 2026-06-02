@@ -12,10 +12,12 @@ backend is selected, `LocalFirstEntryRepository` syncs the same entries to c8tab
 `TeableJsonEntryRepository` or to Feishu Bitable through `FeishuBitableEntryRepository`.
 
 The default navigation is `常用视图`, which shows a rolling window from 3 days before today through
-11 days after today with larger day cards and denser event rows. `日历模式` keeps the month grid but
-shows more visible event text, times, and markers per cell. `时间记录` is now a compact list board
-for high-volume work: unfinished current/future items are grouped by day, sorted by importance and
-time, and completed items move into a collapsed history group.
+11 days after today with larger day cards and denser event rows. The header also shows the next
+explicit-date calendar event after the current minute, skipping same-day timed events that have
+already passed and excluding todos. `日历模式` keeps the month grid but shows more visible event
+text, times, and markers per cell. `时间记录` is now a compact list board for high-volume work:
+unfinished current/future items are grouped by day, sorted by importance and time, and completed
+items move into a collapsed history group.
 
 The same React/Vite UI can run as a standalone web app or inside the Windows executable. OAuth login
 supports c8table OAuth 2.0 PKCE with an OAuth Client ID from settings or
@@ -47,8 +49,14 @@ IndexedDB by `LocalAttachmentRepository`; c8table records store `storage`, `loca
 mime, size, timestamps, and future Teable attachment ids when available.
 
 Android companion work now has a first debug APK. `apps/android` is a Kotlin + Compose project that
-stores the c8table token locally, ensures the shared fields exist, lists events, and quick-creates
-events against the same table. The schema-first sync contract remains under `packages/protocol`.
+uses four top-level tabs: `总览`, `日历`, `待办`, and `设置`. 总览 shows natural-language add,
+the next future explicit-date event, recent todos, and recent calendar entries; 日历 and 待办
+focus on their own lists and add actions. Android does not show API-token or OAuth setup on the
+main work pages; account and data-source configuration stays centralized in the desktop/web
+surfaces, with Android 设置 limited to sync status and configuration guidance. Its home screen
+mirrors the desktop/web next-future explicit-date event cue using Android local time. The
+schema-first sync contract remains under `packages/protocol`; c8table and Feishu remain data stores
+and do not compute UI focus state.
 
 ## Active Change
 

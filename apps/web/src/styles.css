@@ -557,6 +557,7 @@ button.nearestEventPanel:focus-visible {
 }
 
 .commonHeader {
+  align-items: end;
   padding: 0 0 12px;
 }
 
@@ -564,10 +565,89 @@ button.nearestEventPanel:focus-visible {
   font-size: 22px;
 }
 
-.commonHeader > span {
+.commonHeaderStatus {
+  display: grid;
+  justify-items: end;
+  align-content: end;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(100%, 720px);
+}
+
+.commonHeaderStatus > span {
   color: #1f7a68;
   font-size: 13px;
   font-weight: 700;
+}
+
+.nextDatedEvent {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
+  min-height: 26px;
+  border: 0;
+  border-top: 1px solid #dfe6e3;
+  border-radius: 0;
+  padding: 7px 0 0;
+  background: transparent;
+  color: #202124;
+  text-align: left;
+  box-shadow: none;
+}
+
+.nextDatedEvent:not(.empty):hover {
+  color: #1f7a68;
+}
+
+.nextDatedEvent:focus-visible {
+  outline: 2px solid #2f6eb5;
+  outline-offset: 3px;
+}
+
+.nextDatedEvent span,
+.nextDatedEvent em {
+  color: #6f7a80;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.nextDatedEvent span {
+  position: relative;
+  padding-left: 13px;
+  white-space: nowrap;
+}
+
+.nextDatedEvent span::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1f7a68;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.nextDatedEvent em {
+  color: #1f7a68;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nextDatedEvent strong {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nextDatedEvent.empty {
+  pointer-events: none;
 }
 
 .commonDayGrid {

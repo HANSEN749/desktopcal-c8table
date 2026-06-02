@@ -1,6 +1,6 @@
 import type { Entry, EntryUnitId, EntryUnitProfile } from "@desktopcal/shared";
 import { getEntryMarkerSymbol } from "@desktopcal/shared";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDays, dayDiff, toDateKey } from "../domain/date";
 import { sortEntries } from "../repositories/EntryRepository";
 
@@ -28,6 +28,29 @@ function dayOffsetLabel(offset: number): string {
   return offset < 0 ? `${Math.abs(offset)} 天前` : `${offset} 天后`;
 }
 
+function nextEventDateLabel(entry: Entry, today: string): string {
+  const offset = dayDiff(today, entry.date);
+  const dateLabel = offset <= 2 ? dayOffsetLabel(offset) : entry.date.slice(5).replace("-", "/");
+  return entry.time ? `${dateLabel} ${entry.time}` : dateLabel;
+}
+
+function isFutureCalendarEntry(entry: Entry, now: Date): boolean {
+  if (entry.category !== "calendar" || entry.completed) {
+    return false;
+  }
+  const today = toDateKey(now);
+  if (entry.date < today) {
+    return false;
+  }
+  if (entry.date > today) {
+    return true;
+  }
+  if (!entry.time) {
+    return false;
+  }
+  return entry.time > `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
 export function CommonScheduleView({
   entries,
   today,
@@ -36,10 +59,16 @@ export function CommonScheduleView({
   onEditEntry,
   onCompleteTodo,
 }: CommonScheduleViewProps) {
+  const [now, setNow] = useState(() => new Date());
   const days = useMemo(() => {
     const base = new Date(`${today}T00:00:00`);
     return Array.from({ length: 15 }, (_, index) => addDays(base, index - 3));
   }, [today]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
@@ -59,6 +88,10 @@ export function CommonScheduleView({
   }, [entries, today]);
 
   const visibleCount = [...entriesByDate.values()].reduce((count, items) => count + items.length, 0);
+  const nextCalendarEntry = useMemo(
+    () => sortEntries(entries).find((entry) => isFutureCalendarEntry(entry, now)),
+    [entries, now],
+  );
 
   return (
     <section className="commonPane" aria-label="Common schedule">
@@ -67,7 +100,22 @@ export function CommonScheduleView({
           <p className="eyebrow">常用视图</p>
           <h3>前 3 天到后 11 天</h3>
         </div>
-        <span>{visibleCount > 0 ? `${visibleCount} 条可见事件` : "近期暂无事件"}</span>
+        <div className="commonHeaderStatus">
+          <span>{visibleCount > 0 ? `${visibleCount} 条可见事件` : "近期暂无事件"}</span>
+          {nextCalendarEntry ? (
+            <button className="nextDatedEvent" type="button" onClick={() => onEditEntry(nextCalendarEntry)}>
+              <span>下一个明确日期事件</span>
+              <em>{nextEventDateLabel(nextCalendarEntry, today)}</em>
+              <strong>{nextCalendarEntry.title}</strong>
+            </button>
+          ) : (
+            <div className="nextDatedEvent empty">
+              <span>下一个明确日期事件</span>
+              <em>暂无</em>
+              <strong>从快速输入添加</strong>
+            </div>
+          )}
+        </div>
       </div>
       <div className="commonDayGrid">
         {days.map((day) => {
