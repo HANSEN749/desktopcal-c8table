@@ -128,6 +128,7 @@ export function App({ entryRepository, attachmentRepository, storage, requireTea
   const [saveError, setSaveError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const requireTeableOAuth = requireTeableOAuthProp ?? shouldRequireTeableOAuth(entryRepository);
+  const authBlocked = requireTeableOAuth && !oauthState.connected;
 
   const remoteConfigured = Boolean(
     entryRepository ||
@@ -147,6 +148,10 @@ export function App({ entryRepository, attachmentRepository, storage, requireTea
 
   const refreshEntries = useCallback(
     async (silent = false) => {
+      if (authBlocked) {
+        setStatusText("请先登录 c8table OAuth");
+        return;
+      }
       if (!silent) {
         setStatusText(remoteConfigured ? `正在读取 ${backendLabel}` : "正在读取本地备用库");
       }
@@ -158,7 +163,7 @@ export function App({ entryRepository, attachmentRepository, storage, requireTea
           : `本地备用库 ${items.length} 条事件`,
       );
     },
-    [backendLabel, remoteConfigured, repository],
+    [authBlocked, backendLabel, remoteConfigured, repository],
   );
 
   useEffect(() => {
@@ -207,6 +212,10 @@ export function App({ entryRepository, attachmentRepository, storage, requireTea
   }, [oauthState.config, storage]);
 
   useEffect(() => {
+    if (authBlocked) {
+      setStatusText("请先登录 c8table OAuth");
+      return undefined;
+    }
     let alive = true;
     const load = async (silent = false) => {
       if (!silent) {
@@ -240,7 +249,7 @@ export function App({ entryRepository, attachmentRepository, storage, requireTea
         window.clearInterval(interval);
       }
     };
-  }, [backendLabel, remoteConfigured, repository]);
+  }, [authBlocked, backendLabel, remoteConfigured, repository]);
 
   async function prepareQuickEntry(text: string) {
     const localDraft = parseQuickEntry(text, today, unitProfiles);
@@ -419,7 +428,7 @@ export function App({ entryRepository, attachmentRepository, storage, requireTea
     setAiParserRevision((current) => current + 1);
   }
 
-  if (requireTeableOAuth && !oauthState.connected) {
+  if (authBlocked) {
     return (
       <OAuthGate
         oauthState={oauthState}
