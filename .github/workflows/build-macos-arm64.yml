@@ -29,6 +29,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Force desktop OAuth gate
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const appPath = 'apps/web/src/App.tsx';
+          let app = fs.readFileSync(appPath, 'utf8');
+
+          app = app.replace(
+            /(<OAuthGate\n\s+oauthState=\{oauthState\}\n\s+statusText=\{saveError \?\? statusText\}\n)(\s+onLoginWithOAuth=\{loginWithOAuth\})/,
+            '$1        onSaveOAuthClientId={saveOAuthClientId}\n$2',
+          );
+          app = app.replace(
+            'interface OAuthGateProps {\n  oauthState: OAuthViewState;\n  statusText: string;\n  onLoginWithOAuth(): Promise<void>;\n}',
+            'interface OAuthGateProps {\n  oauthState: OAuthViewState;\n  statusText: string;\n  onSaveOAuthClientId(clientId: string): void;\n  onLoginWithOAuth(): Promise<void>;\n}',
+          );
+          app = app.replace(
+            'function OAuthGate({ oauthState, statusText, onLoginWithOAuth }: OAuthGateProps) {\n  return (',
+            'function OAuthGate({ oauthState, statusText, onSaveOAuthClientId, onLoginWithOAuth }: OAuthGateProps) {\n  const [clientIdDraft, setClientIdDraft] = useState(oauthState.config.clientId ?? "");\n  const clientIdReady = Boolean(oauthState.config.clientId);\n\n  function submitClientId(event: FormEvent<HTMLFormElement>) {\n    event.preventDefault();\n    onSaveOAuthClientId(clientIdDraft);\n  }\n\n  return (',
+          );
+          app = app.replace(
+            '        <button\n          className="authGateButton"',
+            '        {!clientIdReady ? (\n          <form className="authGateClientForm" onSubmit={submitClientId}>\n            <label htmlFor="authGateClientId">c8table OAuth Client ID</label>\n            <input\n              id="authGateClientId"\n              value={clientIdDraft}\n              onChange={(event) => setClientIdDraft(event.target.value)}\n              placeholder="先粘贴 OAuth Client ID"\n            />\n            <button type="submit" disabled={!clientIdDraft.trim()}>\n              保存登录配置\n            </button>\n          </form>\n        ) : null}\n        <button\n          className="authGateButton"',
+          );
+          app = app.replace('disabled={!oauthState.config.clientId}', 'disabled={!clientIdReady}');
+          app = app.replace('!oauthState.config.clientId ? (', '!clientIdReady ? (');
+          app = app.replace('登录配置暂不可用，请稍后再试。', '首次使用需要先保存 c8table OAuth Client ID。');
+          app = app.replace(
+            'function shouldRequireTeableOAuth(entryRepository?: EntryRepository): boolean {\n  if (entryRepository) {\n    return false;\n  }\n  return envValue("VITE_REQUIRE_TEABLE_OAUTH") === "true";\n}',
+            'function shouldRequireTeableOAuth(entryRepository?: EntryRepository): boolean {\n  if (entryRepository) {\n    return false;\n  }\n  return envValue("VITE_REQUIRE_TEABLE_OAUTH") === "true" || isTauriRuntime();\n}\n\nfunction isTauriRuntime(): boolean {\n  if (typeof window === "undefined") {\n    return false;\n  }\n  const tauriWindow = window as unknown as {\n    __TAURI__?: unknown;\n    __TAURI_INTERNALS__?: unknown;\n  };\n  return Boolean(tauriWindow.__TAURI__ || tauriWindow.__TAURI_INTERNALS__);\n}',
+          );
+
+          fs.writeFileSync(appPath, app);
+          JS
+
       - name: Build shared and web
         run: |
           npm --workspace @desktopcal/shared run build
