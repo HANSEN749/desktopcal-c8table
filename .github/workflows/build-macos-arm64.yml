@@ -12,6 +12,8 @@ jobs:
   build-macos-arm64:
     name: macOS arm64 DMG
     runs-on: macos-14
+    env:
+      VITE_TEABLE_OAUTH_CLIENT_ID: w9otki4nahiwg6x2fixhopmkb83j07z045kzbl2p
 
     steps:
       - name: Checkout
