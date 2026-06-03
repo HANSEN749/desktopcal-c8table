@@ -1,12 +1,14 @@
 import type {
   Entry,
   EntryAttachment,
+  EntryCategory,
   EntryUnitId,
   EntryUnitProfile,
   EventKind,
   Importance,
 } from "@desktopcal/shared";
 import {
+  categoryLabels,
   getEntryMarkerSymbol,
   kindLabels,
 } from "@desktopcal/shared";
@@ -25,14 +27,17 @@ interface EventDrawerProps {
   onClose(): void;
   onSave(draft: EntryDraft): Promise<void>;
   onDelete(entry: Entry): Promise<void>;
+  onCompleteTodo(entry: Entry): Promise<void>;
 }
 
 const kindOptions: EventKind[] = ["event", "duration"];
+const categoryOptions: EntryCategory[] = ["calendar", "todo"];
 
 function defaultDraft(date: string): EntryDraft {
   return {
     title: "",
     date,
+    category: "calendar",
     unit: "work",
     kind: "event",
     importance: 3,
@@ -47,6 +52,7 @@ function entryToDraft(entry: Entry): EntryDraft {
     title: entry.title,
     date: entry.date,
     time: entry.time,
+    category: entry.category ?? "calendar",
     kind: entry.kind,
     importance: entry.importance,
     completed: entry.completed ?? false,
@@ -67,6 +73,7 @@ export function EventDrawer({
   onClose,
   onSave,
   onDelete,
+  onCompleteTodo,
 }: EventDrawerProps) {
   const [draft, setDraft] = useState<EntryDraft>(() => defaultDraft(date));
   const [attachmentError, setAttachmentError] = useState<string | undefined>();
@@ -83,6 +90,8 @@ export function EventDrawer({
   const title = useMemo(() => (isEditing ? "编辑事件" : "新增事件"), [isEditing]);
   const unitOptions = useMemo(() => Object.values(unitProfiles), [unitProfiles]);
   const unitProfile = unitProfiles[draft.unit ?? "work"] ?? unitProfiles.work;
+  const category = draft.category ?? "calendar";
+  const isTodo = category === "todo";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,11 +130,34 @@ export function EventDrawer({
   }
 
   return (
-    <aside className={`eventDrawer${open ? " open" : ""}`} aria-hidden={!open}>
+    <>
+      {open ? (
+        <button
+          className="drawerScrim"
+          type="button"
+          aria-label="关闭事件详情"
+          onClick={onClose}
+        />
+      ) : null}
+      <aside className={`eventDrawer${open ? " open" : ""}`} aria-hidden={!open}>
       <div className="drawerHeader">
         <div>
-          <p className="eyebrow">{entry?.isLegacy ? "Legacy" : "Event"}</p>
-          <h3>{title}</h3>
+          <p className="eyebrow">{entry?.isLegacy ? "Legacy" : categoryLabels[category]}</p>
+          <div className="drawerTitleLine">
+            <h3>{isTodo ? (isEditing ? "编辑代办" : "新增代办") : title}</h3>
+            {entry && isTodo && !draft.completed ? (
+              <button
+                className="todoQuickDoneButton drawerTodoDone"
+                disabled={saving}
+                type="button"
+                title="设为已办"
+                aria-label={`设为已办：${entry.title}`}
+                onClick={() => void onCompleteTodo(entry)}
+              >
+                ✓
+              </button>
+            ) : null}
+          </div>
         </div>
         <button className="iconButton" type="button" aria-label="关闭事件抽屉" onClick={onClose}>
           ×
@@ -143,27 +175,54 @@ export function EventDrawer({
             required
           />
         </label>
-        <div className="fieldGrid">
-          <label>
-            <span>日期</span>
-            <input
-              value={draft.date}
-              onChange={(event) => setDraft({ ...draft, date: event.currentTarget.value })}
-              aria-label="日期"
-              type="date"
-              required
-            />
-          </label>
-          <label>
-            <span>时间</span>
-            <input
-              value={draft.time ?? ""}
-              onChange={(event) => setDraft({ ...draft, time: event.currentTarget.value })}
-              aria-label="时间"
-              type="time"
-            />
-          </label>
-        </div>
+
+        <fieldset>
+          <legend>条目类型</legend>
+          <div className="segments wide">
+            {categoryOptions.map((option) => (
+              <button
+                aria-pressed={category === option}
+                className={category === option ? "segment active" : "segment"}
+                key={option}
+                type="button"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    category: option,
+                    time: option === "todo" ? undefined : draft.time,
+                    kind: option === "todo" ? "event" : draft.kind,
+                  })
+                }
+              >
+                {categoryLabels[option]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {!isTodo ? (
+          <div className="fieldGrid">
+            <label>
+              <span>日期</span>
+              <input
+                value={draft.date}
+                onChange={(event) => setDraft({ ...draft, date: event.currentTarget.value })}
+                aria-label="日期"
+                type="date"
+                required
+              />
+            </label>
+            <label>
+              <span>时间</span>
+              <input
+                value={draft.time ?? ""}
+                onChange={(event) => setDraft({ ...draft, time: event.currentTarget.value })}
+                aria-label="时间"
+                type="time"
+              />
+            </label>
+          </div>
+        ) : null}
 
         <div className="unitGrid">
           <label>
@@ -183,15 +242,16 @@ export function EventDrawer({
             </select>
           </label>
           <div className="unitPreview" aria-label="显示规则">
-            <span className={`marker level${draft.importance}`}>
-              {getEntryMarkerSymbol(unitProfile.shape, draft.kind ?? "event")}
+            <span className={isTodo ? `marker todoMarker todoLevel${draft.importance}` : `marker level${draft.importance}`}>
+              {isTodo ? "●" : getEntryMarkerSymbol(unitProfile.shape, draft.kind ?? "event")}
             </span>
             <strong>{unitProfile.label}</strong>
-            <em>{kindLabels[draft.kind ?? "event"]}</em>
+            <em>{isTodo ? "代办" : kindLabels[draft.kind ?? "event"]}</em>
           </div>
         </div>
 
-        <fieldset>
+        {!isTodo ? (
+          <fieldset>
           <legend>事件类型</legend>
           <div className="segments wide">
             {kindOptions.map((kind) => (
@@ -206,7 +266,8 @@ export function EventDrawer({
               </button>
             ))}
           </div>
-        </fieldset>
+          </fieldset>
+        ) : null}
 
         <label>
           <span>重要性</span>
@@ -289,7 +350,8 @@ export function EventDrawer({
           </button>
         </div>
       </form>
-    </aside>
+      </aside>
+    </>
   );
 }
 

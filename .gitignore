@@ -10,7 +10,10 @@ dist/
 target/
 apps/web/dist/
 apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/target-codex/
 apps/android/.gradle/
+apps/android/.kotlin/
 apps/android/local.properties
 apps/android/**/build/
+output/
 *.log

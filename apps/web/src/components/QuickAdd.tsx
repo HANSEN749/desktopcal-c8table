@@ -24,7 +24,7 @@ export function QuickAdd({ disabled, onAdd }: QuickAddProps) {
       <input
         value={title}
         onChange={(event) => setTitle(event.currentTarget.value)}
-        placeholder="快速输入：明天15:00 持续 单位 重要 巡检"
+        placeholder="快速输入：明天15:00 截止 单位 重要 巡检"
         aria-label="Quick add title"
         disabled={disabled}
       />

@@ -7,7 +7,7 @@ import {
   shapeLabels,
   type Entry,
 } from "@desktopcal/shared";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout, type RepositoryMode } from "./components/AppLayout";
 import { CommonScheduleView } from "./components/CommonScheduleView";
 import { EventDrawer } from "./components/EventDrawer";
@@ -18,6 +18,7 @@ import { TimeRecordBoard } from "./components/TimeRecordBoard";
 import { UpcomingList } from "./components/UpcomingList";
 import { addDays, toDateKey } from "./domain/date";
 import { groupUpcomingEntries } from "./domain/upcoming";
+import loginBackgroundUrl from "./assets/login-bg.png";
 import type { AttachmentRepository, EntryDraft, EntryRepository } from "./repositories/EntryRepository";
 import { sortEntries } from "./repositories/EntryRepository";
 import { DEFAULT_FEISHU_BASE_URL } from "./repositories/FeishuBitableEntryRepository";
@@ -29,14 +30,20 @@ import {
   completeTeableOAuthCallback,
   ensureFreshTeableOAuthToken,
   getTeableOAuthRedirectUri,
+  readActiveTeableOAuthAccount,
+  readTeableOAuthAccounts,
   readTeableOAuthConfig,
   readTeableOAuthSession,
+  removeTeableOAuthAccount,
   saveStoredOAuthClientId,
+  switchTeableOAuthAccount,
+  type TeableOAuthAccount,
   type TeableOAuthConfig,
 } from "./repositories/TeableOAuth";
 import {
   createDefaultEntryRepository,
   readRuntimeRepositoryConfig,
+  saveStoredDatabaseUrl,
   saveStoredFeishuConfig,
   saveStoredRepositoryProvider,
   saveStoredTeableToken,
@@ -73,15 +80,18 @@ interface OAuthViewState {
   config: TeableOAuthConfig;
   connected: boolean;
   expiresAt?: number;
+  activeAccount?: TeableOAuthAccount;
+  accounts: TeableOAuthAccount[];
 }
 
 export interface AppProps {
   entryRepository?: EntryRepository;
   attachmentRepository?: AttachmentRepository;
   storage?: Storage;
+  requireTeableOAuth?: boolean;
 }
 
-export function App({ entryRepository, attachmentRepository, storage }: AppProps = {}) {
+export function App({ entryRepository, attachmentRepository, storage, requireTeableOAuth: requireTeableOAuthProp }: AppProps = {}) {
   const today = useMemo(() => toDateKey(new Date()), []);
   const [tokenRevision, setTokenRevision] = useState(0);
   const runtimeConfig = useMemo(
@@ -90,8 +100,10 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   );
   const oauthState = useMemo(() => readOAuthViewState(storage), [storage, tokenRevision]);
   const attachments = useMemo(
-    () => attachmentRepository ?? new LocalAttachmentRepository(),
-    [attachmentRepository],
+    () =>
+      attachmentRepository ??
+      new LocalAttachmentRepository(`desktopcal-local-attachments-${runtimeConfig.localStorageScope}`),
+    [attachmentRepository, runtimeConfig.localStorageScope],
   );
   const [unitProfiles, setUnitProfiles] = useState<UnitProfileMap>(() => readStoredUnitProfiles(storage));
   const [aiParserRevision, setAiParserRevision] = useState(0);
@@ -116,6 +128,8 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   const [statusText, setStatusText] = useState("正在读取事件");
   const [saveError, setSaveError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const requireTeableOAuth = requireTeableOAuthProp ?? shouldRequireTeableOAuth(entryRepository);
+  const authBlocked = requireTeableOAuth && !oauthState.connected;
 
   const remoteConfigured = Boolean(
     entryRepository ||
@@ -127,10 +141,18 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   );
   const mode: RepositoryMode = entryRepository ? "teable" : runtimeConfig.provider;
   const backendLabel = backendModeLabel(mode);
+  const databaseUrl = useMemo(
+    () => (remoteConfigured ? runtimeDatabaseUrl(runtimeConfig, Boolean(entryRepository)) : undefined),
+    [entryRepository, remoteConfigured, runtimeConfig],
+  );
   const groups = useMemo(() => groupUpcomingEntries(entries, today, range), [entries, range, today]);
 
   const refreshEntries = useCallback(
     async (silent = false) => {
+      if (authBlocked) {
+        setStatusText("请先登录 c8table OAuth");
+        return;
+      }
       if (!silent) {
         setStatusText(remoteConfigured ? `正在读取 ${backendLabel}` : "正在读取本地备用库");
       }
@@ -142,7 +164,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           : `本地备用库 ${items.length} 条事件`,
       );
     },
-    [backendLabel, remoteConfigured, repository],
+    [authBlocked, backendLabel, remoteConfigured, repository],
   );
 
   useEffect(() => {
@@ -191,6 +213,10 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
   }, [oauthState.config, storage]);
 
   useEffect(() => {
+    if (authBlocked) {
+      setStatusText("请先登录 c8table OAuth");
+      return undefined;
+    }
     let alive = true;
     const load = async (silent = false) => {
       if (!silent) {
@@ -224,7 +250,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
         window.clearInterval(interval);
       }
     };
-  }, [backendLabel, remoteConfigured, repository]);
+  }, [authBlocked, backendLabel, remoteConfigured, repository]);
 
   async function prepareQuickEntry(text: string) {
     const localDraft = parseQuickEntry(text, today, unitProfiles);
@@ -281,20 +307,34 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     }
   }
 
-  async function toggleEntryCompleted(entry: Entry) {
+  async function setEntryCompleted(entry: Entry, completed: boolean) {
     setBusy(true);
     setSaveError(undefined);
     try {
-      const saved = await repository.update({ ...entry, completed: !(entry.completed ?? false) });
+      const saved = await repository.update({ ...entry, completed });
       setEntries((current) =>
         sortEntries(current.map((item) => (item.id === saved.id ? saved : item))),
       );
-      setStatusText(saved.completed ? "事件已标记完成" : "事件已恢复未完成");
+      setStatusText(saved.completed ? "条目已标记完成" : "条目已恢复未完成");
       await refreshEntries(true);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "更新完成状态失败");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function toggleEntryCompleted(entry: Entry) {
+    await setEntryCompleted(entry, !(entry.completed ?? false));
+  }
+
+  async function completeTodo(entry: Entry) {
+    if (entry.completed) {
+      return;
+    }
+    await setEntryCompleted(entry, true);
+    if (drawer.entry?.id === entry.id) {
+      setDrawer({ open: false, date: entry.date });
     }
   }
 
@@ -318,6 +358,16 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     setTokenRevision((current) => current + 1);
   }
 
+  function saveDatabaseUrl(url: string) {
+    saveStoredDatabaseUrl(url, storage);
+    setTokenRevision((current) => current + 1);
+  }
+
+  function clearDatabaseUrl() {
+    saveStoredDatabaseUrl("", storage);
+    setTokenRevision((current) => current + 1);
+  }
+
   function saveOAuthClientId(clientId: string) {
     saveStoredOAuthClientId(clientId, storage);
     setTokenRevision((current) => current + 1);
@@ -336,6 +386,18 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     clearTeableOAuthSession(storage);
     setTokenRevision((current) => current + 1);
     setStatusText("c8table OAuth 已退出");
+  }
+
+  function switchOAuthAccount(accountId: string) {
+    switchTeableOAuthAccount(accountId, storage);
+    setTokenRevision((current) => current + 1);
+    setStatusText("已切换 c8table OAuth 账号");
+  }
+
+  function removeOAuthAccount(accountId: string) {
+    removeTeableOAuthAccount(accountId, storage);
+    setTokenRevision((current) => current + 1);
+    setStatusText("已移除 c8table OAuth 账号");
   }
 
   function updateUnitProfileLabel(id: EntryUnitId, label: string) {
@@ -367,14 +429,26 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
     setAiParserRevision((current) => current + 1);
   }
 
+  if (authBlocked) {
+    return (
+      <OAuthGate
+        oauthState={oauthState}
+        statusText={saveError ?? statusText}
+        onLoginWithOAuth={loginWithOAuth}
+      />
+    );
+  }
+
   return (
     <AppLayout
       activeView={activeView}
       entries={entries}
       today={today}
       unitProfiles={unitProfiles}
+      databaseUrl={databaseUrl}
       onViewChange={setActiveView}
       onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+      onCompleteTodo={(entry) => void completeTodo(entry)}
       quickAdd={<QuickAdd disabled={busy} onAdd={prepareQuickEntry} />}
       drawer={
         <EventDrawer
@@ -389,6 +463,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           onClose={() => setDrawer({ open: false, date: drawer.date })}
           onSave={saveDrawerEntry}
           onDelete={deleteDrawerEntry}
+          onCompleteTodo={completeTodo}
         />
       }
     >
@@ -399,6 +474,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           unitProfiles={unitProfiles}
           onCreateAtDate={(date) => setDrawer({ open: true, date })}
           onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+          onCompleteTodo={(entry) => void completeTodo(entry)}
         />
       ) : null}
 
@@ -412,6 +488,7 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
             onMonthChange={setCurrentMonth}
             onCreateAtDate={(date) => setDrawer({ open: true, date })}
             onEditEntry={(entry) => setDrawer({ open: true, date: entry.date, entry })}
+            onCompleteTodo={(entry) => void completeTodo(entry)}
           />
 
           <section className="rightRail">
@@ -453,9 +530,13 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
           onSaveToken={saveToken}
           onClearToken={clearToken}
           onSaveFeishuConfig={saveFeishuConfig}
+          onSaveDatabaseUrl={saveDatabaseUrl}
+          onClearDatabaseUrl={clearDatabaseUrl}
           onSaveOAuthClientId={saveOAuthClientId}
           onLoginWithOAuth={loginWithOAuth}
           onLogoutOAuth={logoutOAuth}
+          onSwitchOAuthAccount={switchOAuthAccount}
+          onRemoveOAuthAccount={removeOAuthAccount}
           onSaveAiParserConfig={saveAiParserConfig}
           onClearAiParserToken={clearAiParserToken}
           onUnitProfileLabelChange={updateUnitProfileLabel}
@@ -463,6 +544,50 @@ export function App({ entryRepository, attachmentRepository, storage }: AppProps
         />
       ) : null}
     </AppLayout>
+  );
+}
+
+interface OAuthGateProps {
+  oauthState: OAuthViewState;
+  statusText: string;
+  onLoginWithOAuth(): Promise<void>;
+}
+
+function OAuthGate({ oauthState, statusText, onLoginWithOAuth }: OAuthGateProps) {
+  return (
+    <main className="authGate" aria-label="c8table OAuth required">
+      <section className="authGateHero" style={{ "--login-bg": `url(${loginBackgroundUrl})` } as CSSProperties}>
+        <header className="authGateHeader">
+          <div className="authGateLogoMark">待</div>
+          <span>待办历</span>
+        </header>
+        <div className="authGateBrand">
+          <h1>待办入历，日程成事</h1>
+          <p>把待办清单和日历节奏合在一起，轻量安排每天要做的事。</p>
+        </div>
+      </section>
+      <section className="authGatePanel">
+        <div className="authGateTabs" aria-hidden="true">
+          <span>登录</span>
+          <span>注册</span>
+        </div>
+        <div className="authGateLoginHeader">
+          <h2>登录到您的账户</h2>
+          <p>使用 c8table 账号继续</p>
+        </div>
+        <button
+          className="authGateButton"
+          disabled={!oauthState.config.clientId}
+          type="button"
+          onClick={() => void onLoginWithOAuth()}
+        >
+          使用 c8table 登录
+        </button>
+        {!oauthState.config.clientId ? (
+          <p className="authGateWarning">登录配置暂不可用，请稍后再试。</p>
+        ) : null}
+      </section>
+    </main>
   );
 }
 
@@ -478,9 +603,13 @@ interface SettingsViewProps {
   onSaveToken(token: string): void;
   onClearToken(): void;
   onSaveFeishuConfig(config: Partial<FeishuRuntimeConfig>): void;
+  onSaveDatabaseUrl(url: string): void;
+  onClearDatabaseUrl(): void;
   onSaveOAuthClientId(clientId: string): void;
   onLoginWithOAuth(): Promise<void>;
   onLogoutOAuth(): void;
+  onSwitchOAuthAccount(accountId: string): void;
+  onRemoveOAuthAccount(accountId: string): void;
   onSaveAiParserConfig(config: AiParserConfig): void;
   onClearAiParserToken(): void;
   onUnitProfileLabelChange(id: EntryUnitId, label: string): void;
@@ -499,9 +628,13 @@ function SettingsView({
   onSaveToken,
   onClearToken,
   onSaveFeishuConfig,
+  onSaveDatabaseUrl,
+  onClearDatabaseUrl,
   onSaveOAuthClientId,
   onLoginWithOAuth,
   onLogoutOAuth,
+  onSwitchOAuthAccount,
+  onRemoveOAuthAccount,
   onSaveAiParserConfig,
   onClearAiParserToken,
   onUnitProfileLabelChange,
@@ -513,6 +646,7 @@ function SettingsView({
   const [feishuAppToken, setFeishuAppToken] = useState(runtimeConfig.feishu.appToken ?? "");
   const [feishuTableId, setFeishuTableId] = useState(runtimeConfig.feishu.tableId ?? "");
   const [feishuBaseUrl, setFeishuBaseUrl] = useState(runtimeConfig.feishu.baseUrl);
+  const [databaseUrl, setDatabaseUrl] = useState(runtimeConfig.databaseUrl ?? "");
   const [aiToken, setAiToken] = useState("");
   const [aiBaseUrl, setAiBaseUrl] = useState(aiParserConfig.baseUrl);
   const [aiModel, setAiModel] = useState(aiParserConfig.model);
@@ -528,6 +662,10 @@ function SettingsView({
     setFeishuTableId(runtimeConfig.feishu.tableId ?? "");
     setFeishuBaseUrl(runtimeConfig.feishu.baseUrl);
   }, [runtimeConfig.feishu.appToken, runtimeConfig.feishu.baseUrl, runtimeConfig.feishu.tableId]);
+
+  useEffect(() => {
+    setDatabaseUrl(runtimeConfig.databaseUrl ?? "");
+  }, [runtimeConfig.databaseUrl]);
 
   function submitToken(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -549,6 +687,16 @@ function SettingsView({
       baseUrl: feishuBaseUrl.trim() || DEFAULT_FEISHU_BASE_URL,
     });
     setFeishuAccessToken("");
+  }
+
+  function submitDatabaseUrl(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveDatabaseUrl(databaseUrl);
+  }
+
+  function clearDatabaseUrl() {
+    setDatabaseUrl("");
+    onClearDatabaseUrl();
   }
 
   function submitAiParser(event: FormEvent<HTMLFormElement>) {
@@ -719,6 +867,28 @@ function SettingsView({
           </form>
         </section>
 
+        <section className="settingsCard databaseLinkSettingsCard" aria-label="Database visual link">
+          <div className="settingsCardHeader">
+            <div>
+              <p className="eyebrow">后台数据库</p>
+              <h4>{runtimeConfig.databaseUrl ? "已指定" : "自动推断"}</h4>
+            </div>
+            <span>URL</span>
+          </div>
+          <form className="settingsTokenForm databaseUrlForm" onSubmit={submitDatabaseUrl}>
+            <input
+              value={databaseUrl}
+              onChange={(event) => setDatabaseUrl(event.currentTarget.value)}
+              placeholder="c8table 或飞书多维表格页面 URL"
+              aria-label="后台数据库 URL"
+            />
+            <button type="submit">保存</button>
+            <button type="button" onClick={clearDatabaseUrl}>
+              清除
+            </button>
+          </form>
+        </section>
+
         <section className="settingsCard" aria-label="c8table OAuth login">
           <div className="settingsCardHeader">
             <div>
@@ -740,11 +910,41 @@ function SettingsView({
               <dt>状态</dt>
               <dd>
                 {oauthState.connected && oauthState.expiresAt
-                  ? `已连接，${new Date(oauthState.expiresAt).toLocaleTimeString()} 前刷新`
+                  ? `已连接：${oauthAccountLabel(oauthState.activeAccount)}，${new Date(
+                      oauthState.expiresAt,
+                    ).toLocaleTimeString()} 前刷新`
                   : "未连接"}
               </dd>
             </div>
+            <div>
+              <dt>本地隔离</dt>
+              <dd>{runtimeConfig.localStorageScope}</dd>
+            </div>
           </dl>
+          {oauthState.accounts.length > 0 ? (
+            <div className="oauthAccountList" aria-label="OAuth accounts">
+              {oauthState.accounts.map((account) => (
+                <div className="oauthAccountRow" key={account.id}>
+                  <button
+                    aria-pressed={oauthState.activeAccount?.id === account.id}
+                    className={oauthState.activeAccount?.id === account.id ? "oauthAccount active" : "oauthAccount"}
+                    type="button"
+                    onClick={() => onSwitchOAuthAccount(account.id)}
+                  >
+                    <strong>{oauthAccountLabel(account)}</strong>
+                    <span>{account.user.email ?? account.id}</span>
+                  </button>
+                  <button
+                    className="smallTextButton"
+                    type="button"
+                    onClick={() => onRemoveOAuthAccount(account.id)}
+                  >
+                    移除
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <form className="settingsTokenForm oauthClientForm" onSubmit={submitOAuthClientId}>
             <input
               aria-label="Teable OAuth Client ID"
@@ -843,7 +1043,7 @@ function SettingsView({
             </span>
             <span>
               <strong>{kindLabels.duration}</strong>
-              实心，表示持续推进或占用时间的事
+              实心，表示有截止要求或必须完成的事
             </span>
           </div>
         </section>
@@ -860,6 +1060,18 @@ function browserStorage(): Storage | undefined {
   }
 }
 
+function envValue(key: string): string | undefined {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+  return env?.[key]?.trim() || undefined;
+}
+
+function shouldRequireTeableOAuth(entryRepository?: EntryRepository): boolean {
+  if (entryRepository) {
+    return false;
+  }
+  return envValue("VITE_REQUIRE_TEABLE_OAUTH") === "true";
+}
+
 function backendModeLabel(mode: RepositoryMode): string {
   if (mode === "teable") {
     return "c8table";
@@ -868,6 +1080,31 @@ function backendModeLabel(mode: RepositoryMode): string {
     return "飞书多维表格";
   }
   return "本地备用库";
+}
+
+function runtimeDatabaseUrl(
+  config: ReturnType<typeof readRuntimeRepositoryConfig>,
+  hasInjectedRemote = false,
+): string | undefined {
+  if (config.databaseUrl) {
+    return config.databaseUrl;
+  }
+  if ((hasInjectedRemote || config.provider === "teable") && (hasInjectedRemote || config.teableToken)) {
+    return teableDatabaseUrl(config.teableBaseUrl, config.teableTableId);
+  }
+  if (config.provider === "feishu" && config.feishu.accessToken && config.feishu.appToken && config.feishu.tableId) {
+    return feishuDatabaseUrl(config.feishu.baseUrl, config.feishu.appToken, config.feishu.tableId);
+  }
+  return undefined;
+}
+
+function teableDatabaseUrl(baseUrl: string, tableId: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/table/${encodeURIComponent(tableId)}`;
+}
+
+function feishuDatabaseUrl(baseUrl: string, appToken: string, tableId: string): string {
+  const host = baseUrl.includes("larksuite") ? "https://larksuite.com" : "https://feishu.cn";
+  return `${host}/base/${encodeURIComponent(appToken)}?table=${encodeURIComponent(tableId)}`;
 }
 
 function readStoredUnitProfiles(storage = browserStorage()): UnitProfileMap {
@@ -914,11 +1151,21 @@ function saveStoredAiParserConfig(config: AiParserConfig, storage = browserStora
 function readOAuthViewState(storage = browserStorage()): OAuthViewState {
   const config = readTeableOAuthConfig(storage);
   const session = readTeableOAuthSession(storage);
+  const activeAccount = readActiveTeableOAuthAccount(storage);
   return {
     config,
     connected: Boolean(session && session.refreshExpiresAt > Date.now()),
     expiresAt: session?.expiresAt,
+    activeAccount,
+    accounts: readTeableOAuthAccounts(storage),
   };
+}
+
+function oauthAccountLabel(account: TeableOAuthAccount | undefined): string {
+  if (!account) {
+    return "未识别账号";
+  }
+  return account.user.name || account.user.email || account.id;
 }
 
 function mergeUnitProfiles(
@@ -942,6 +1189,7 @@ function parseQuickEntry(text: string, today: string, unitProfiles: UnitProfileM
   rest = removeMatchedToken(rest, date.matched);
   const time = parseQuickTime(rest);
   rest = removeMatchedToken(rest, time.matched);
+  const category = parseQuickCategory(text, date.matched, time.value);
   const kind = parseQuickKind(rest);
   rest = removeMatchedToken(rest, kind.matched);
   const importance = parseQuickImportance(rest);
@@ -952,13 +1200,21 @@ function parseQuickEntry(text: string, today: string, unitProfiles: UnitProfileM
   return {
     title,
     date: date.value,
-    time: time.value,
+    time: category === "todo" ? undefined : time.value,
+    category,
     unit: unit.value,
-    kind: kind.value,
+    kind: category === "todo" ? "event" : kind.value,
     importance: importance.value,
     note,
     attachments: [],
   };
+}
+
+function parseQuickCategory(text: string, matchedDate: string | undefined, time: string | undefined): EntryDraft["category"] {
+  if (/(待办|代办|任务)/.test(text) && !matchedDate && !time) {
+    return "todo";
+  }
+  return "calendar";
 }
 
 function parseQuickDate(text: string, today: string): { value: string; matched?: string } {
@@ -1123,6 +1379,8 @@ function cleanupQuickTitle(text: string, originalText: string): string {
     .replace(/@所有人/g, " ")
     .replace(/各位(?:领导)?同事/g, " ")
     .replace(/请[于在]?/g, " ")
+    .replace(/\b(todo|task)\b/gi, " ")
+    .replace(/待办|代办/g, " ")
     .replace(/前完成|之前完成|以前完成/g, " ")
     .replace(/另外|及时/g, " ")
     .replace(/[，,。；;：:]+/g, " ")
@@ -1197,16 +1455,19 @@ async function parseQuickEntryWithAi(
               [
                 "你是 DesktopCal 的中文快速添加解析器。只返回 JSON，不要解释。",
                 "目标是把一句自然语言拆成日历字段，不要改写用户本意。",
-                "字段必须是 title,date,time,unit,kind,importance,note。",
+                "字段必须是 title,date,time,category,unit,kind,importance,note。",
                 "date 必须是 YYYY-MM-DD；time 必须是 HH:mm 或 null；unit 必须从给定 units.id 中选。",
+                "category 只能是 calendar 或 todo：todo=没有具体截止时间的代办，只在创建当天归属显示；calendar=有明确日期或时间的日历条目。",
+                "如果文本包含待办/代办/任务且没有明确日期和时间，category=todo，time=null。只要文本有明确日期或时间，category=calendar。",
                 "date 抽取规则：'5月30日前/之前/截止前/请于5月30日前完成' 的日期就是当年 05-30，不要退回 today。",
                 "time 抽取规则：只有明确几点/HH:mm/上午下午时才填；没有明确时间填 null。中文数字也要解析，例如 下午三点=15:00，三点半=03:30，下午三点半=15:30。",
                 "unit 抽取规则：如果正文精确包含某个 units.label，选对应 id；含单位/公司/部门/领导/同事/集团/中建/八局/巡视/整改时优先 work。",
-                "kind 只能是 event 或 duration：event=某一时刻发生的会议/提醒；duration=持续推进/占用时间/任务/截止/完成/提交/更新/整改/归还。",
+                "kind 只能是 event 或 duration：event=某一时刻发生的会议/提醒；duration=截止/必须完成/持续推进/占用时间/任务/提交/更新/整改/归还。",
                 "importance 必须是 1-5：默认 3；重要/高优先级=4；紧急/非常重要/领导/保密/巡视/整改/集团/党组/中央/截止/及时=5。",
-                "title 只保留要办的事情，删除 @所有人、日期、时间、来源、重要性、持续/事件、链接等元信息。",
+                "title 只保留要办的事情，删除 @所有人、日期、时间、来源、重要性、截止/事件、链接等元信息。",
                 "note 可放链接或补充说明；正文里有 URL 时放入 note。",
-                "示例：today=2026-05-28，text='@所有人各位领导同事，请于5月30日前完成巡视整改台账月度进展情况更新。另外请及时归还保密文件。 https://docs.qq.com/x'，输出 {\"title\":\"巡视整改台账月度进展情况更新；归还保密文件\",\"date\":\"2026-05-30\",\"time\":null,\"unit\":\"work\",\"kind\":\"duration\",\"importance\":5,\"note\":\"https://docs.qq.com/x\"}",
+                "示例：today=2026-05-28，text='@所有人各位领导同事，请于5月30日前完成巡视整改台账月度进展情况更新。另外请及时归还保密文件。 https://docs.qq.com/x'，输出 {\"title\":\"巡视整改台账月度进展情况更新；归还保密文件\",\"date\":\"2026-05-30\",\"time\":null,\"category\":\"calendar\",\"unit\":\"work\",\"kind\":\"duration\",\"importance\":5,\"note\":\"https://docs.qq.com/x\"}",
+                "示例：today=2026-05-28，text='待办 整理发票 很重要'，输出 {\"title\":\"整理发票\",\"date\":\"2026-05-28\",\"time\":null,\"category\":\"todo\",\"unit\":\"work\",\"kind\":\"event\",\"importance\":4,\"note\":null}",
               ].join("\n"),
           },
           {
@@ -1256,15 +1517,16 @@ function normalizeAiDraft(value: unknown, fallback: EntryDraft, unitProfiles: Un
   const title = typeof data.title === "string" && data.title.trim() ? data.title.trim() : fallback.title;
   const date = typeof data.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : fallback.date;
   const time = typeof data.time === "string" && /^\d{2}:\d{2}$/.test(data.time) ? data.time : fallback.time;
+  const category = data.category === "todo" || data.category === "calendar" ? data.category : fallback.category;
   const unit =
     typeof data.unit === "string" && Object.prototype.hasOwnProperty.call(unitProfiles, data.unit)
       ? (data.unit as EntryUnitId)
       : fallback.unit;
-  const kind = data.kind === "duration" || data.kind === "event" ? data.kind : fallback.kind;
+  const kind = category === "todo" ? "event" : data.kind === "duration" || data.kind === "event" ? data.kind : fallback.kind;
   const importance =
     typeof data.importance === "number" && Number.isInteger(data.importance) && data.importance >= 1 && data.importance <= 5
       ? (data.importance as EntryDraft["importance"])
       : fallback.importance;
   const note = typeof data.note === "string" && data.note.trim() ? data.note.trim() : fallback.note;
-  return { ...fallback, title, date, time, unit, kind, importance, note };
+  return { ...fallback, title, date, time: category === "todo" ? undefined : time, category, unit, kind, importance, note };
 }

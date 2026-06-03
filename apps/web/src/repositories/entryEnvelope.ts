@@ -2,6 +2,7 @@ import type {
   Entry,
   EntryAttachment,
   EntryAttachmentStorage,
+  EntryCategory,
   EntryUnitId,
   EventKind,
   EventShape,
@@ -25,6 +26,7 @@ export interface EntryEnvelope {
   title: string;
   date: string;
   time?: string;
+  category?: EntryCategory;
   shape: EventShape;
   kind: EventKind;
   importance: Importance;
@@ -44,6 +46,7 @@ export interface TeableRecord {
 
 const shapes: EventShape[] = ["circle", "triangle", "square", "diamond", "star", "hexagon"];
 const kinds: EventKind[] = ["duration", "event"];
+const categories: EntryCategory[] = ["calendar", "todo"];
 const storages: EntryAttachmentStorage[] = ["local", "teable"];
 const units: EntryUnitId[] = ["work", "research", "review", "personal", "other"];
 
@@ -57,6 +60,10 @@ function isShape(value: unknown): value is EventShape {
 
 function isKind(value: unknown): value is EventKind {
   return typeof value === "string" && kinds.includes(value as EventKind);
+}
+
+function isCategory(value: unknown): value is EntryCategory {
+  return typeof value === "string" && categories.includes(value as EntryCategory);
 }
 
 function coerceKind(value: unknown): EventKind | undefined {
@@ -153,6 +160,7 @@ export function entryToEnvelope(entry: Entry): EntryEnvelope {
     title: entry.title,
     date: entry.date,
     time: entry.time,
+    category: entry.category ?? "calendar",
     shape: entry.shape,
     kind: entry.kind,
     importance: entry.importance,
@@ -171,15 +179,17 @@ export function envelopeToEntry(recordId: string, value: unknown, fallbackDate: 
   const now = new Date().toISOString();
   const unit = isUnit(value.unit) ? value.unit : "work";
   const presentation = getEntryUnitProfile(unit);
+  const category = isCategory(value.category) ? value.category : "calendar";
   return {
     id: recordId,
     localId: text(value.localId, createLocalId()),
     unit,
     title: text(value.title, "未命名事件"),
     date: dateText(value.date, fallbackDate),
-    time: optionalText(value.time),
+    time: category === "todo" ? undefined : optionalText(value.time),
+    category,
     shape: presentation.shape,
-    kind: coerceKind(value.kind) ?? "event",
+    kind: category === "todo" ? "event" : coerceKind(value.kind) ?? "event",
     importance: isImportance(value.importance) ? value.importance : 3,
     completed: typeof value.completed === "boolean" ? value.completed : false,
     note: optionalText(value.note),
@@ -222,6 +232,7 @@ export function parseTeableRecord(record: TeableRecord, fallbackDate: string): E
     unit: "other",
     title: raw.trim(),
     date: recordDate,
+    category: "calendar",
     shape: getEntryUnitProfile("other").shape,
     kind: "event",
     importance: 1,

@@ -41,6 +41,181 @@ input:disabled {
   opacity: 0.62;
 }
 
+.authGate {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(420px, 0.45fr);
+  min-height: 100vh;
+  overflow: hidden;
+  background: #ffffff;
+  color: #202124;
+}
+
+.authGateHero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 100vh;
+  padding: 44px clamp(44px, 5vw, 88px);
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.74)),
+    var(--login-bg) center / cover no-repeat,
+    #fbfcfb;
+}
+
+.authGateHero::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  background: rgba(32, 33, 36, 0.08);
+  box-shadow: 16px 0 28px rgba(32, 33, 36, 0.07);
+  content: "";
+}
+
+.authGateHeader {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #121721;
+  font-size: 21px;
+  font-weight: 740;
+}
+
+.authGateLogoMark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #121721;
+  color: white;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.authGateBrand {
+  display: grid;
+  gap: 18px;
+  max-width: 720px;
+  margin-left: clamp(54px, 11vw, 210px);
+}
+
+.authGateBrand h1,
+.authGateBrand p,
+.authGateLoginHeader h2,
+.authGateLoginHeader p {
+  margin: 0;
+}
+
+.authGateBrand h1 {
+  color: #080c18;
+  font-size: clamp(42px, 5.2vw, 76px);
+  font-weight: 900;
+  line-height: 1.08;
+}
+
+.authGateBrand p {
+  max-width: 620px;
+  color: #171b22;
+  font-size: clamp(17px, 1.35vw, 22px);
+  line-height: 1.5;
+}
+
+.authGatePanel {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  min-height: 100vh;
+  padding: 42px clamp(40px, 5vw, 88px);
+  background: #ffffff;
+}
+
+.authGateTabs {
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 8px;
+  padding: 4px;
+  background: #f0f1f3;
+  color: #6f7680;
+  font-size: 15px;
+}
+
+.authGateTabs span {
+  min-width: 54px;
+  border-radius: 7px;
+  padding: 8px 14px;
+  text-align: center;
+}
+
+.authGateTabs span:first-child {
+  background: white;
+  color: #121721;
+  box-shadow: 0 1px 5px rgba(32, 33, 36, 0.14);
+}
+
+.authGateLoginHeader {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.authGateLoginHeader p {
+  color: #6f7a80;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.authGateLoginHeader h2 {
+  color: #636c76;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.authGateStatus,
+.authGateWarning {
+  min-height: 20px;
+  margin: 0;
+  color: #6f7a80;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.authGateButton {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 20px;
+  background: #121721;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.authGateButton:not(:disabled):hover,
+.authGateButton:not(:disabled):focus-visible {
+  background: #1f7a68;
+  outline: 2px solid rgba(31, 122, 104, 0.22);
+  outline-offset: 3px;
+}
+
+.authGateWarning {
+  color: #a33b2f;
+}
+
 .appShell {
   display: grid;
   grid-template-columns: 226px minmax(0, 1fr);
@@ -107,13 +282,23 @@ input:disabled {
 }
 
 .miniStats {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: end;
+  display: flex;
+  align-items: center;
   gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
   border-radius: 8px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-align: left;
+}
+
+.databaseButton:hover,
+.databaseButton:focus-visible {
+  background: rgba(255, 255, 255, 0.15);
+  outline: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 .miniStats strong {
@@ -123,7 +308,8 @@ input:disabled {
 
 .miniStats span {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .nearestEventPanel {
@@ -140,6 +326,155 @@ input:disabled {
   background: rgba(255, 255, 255, 0.1);
   color: white;
   text-align: left;
+}
+
+.todoPanel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  flex: 1;
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-align: left;
+}
+
+.todoPanel.empty {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.todoPanel.empty strong,
+.todoPanelTitle {
+  color: white;
+  font-size: 16px;
+}
+
+.todoList {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.todoRowShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  align-items: start;
+  gap: 3px;
+  border-radius: 7px;
+}
+
+.todoRow {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  min-height: 58px;
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 4px;
+  background: transparent;
+  color: white;
+  text-align: left;
+}
+
+.todoRow:hover,
+.todoRow:focus-visible,
+.todoRowShell:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.todoRowBody,
+.todoRow em {
+  overflow: hidden;
+}
+
+.todoRow strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: white;
+  font-size: 14px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.todoRowBody {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.todoRowBody span,
+.todoRow em,
+.todoPanel.empty span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.todoRowBody span {
+  overflow: hidden;
+  max-width: 100%;
+  color: rgba(255, 255, 255, 0.46);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoRow em {
+  align-self: start;
+  padding-top: 2px;
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.todoQuickDoneButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: #78847f;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.todoQuickDoneButton:hover,
+.todoQuickDoneButton:focus-visible,
+.todoRowShell:hover .todoQuickDoneButton,
+.todoEntryRow:hover .todoQuickDoneButton {
+  opacity: 1;
+}
+
+.todoQuickDoneButton:hover,
+.todoQuickDoneButton:focus-visible {
+  border-color: #1f7a68;
+  background: rgba(31, 122, 104, 0.1);
+  color: #1f7a68;
+}
+
+.sidebarTodoDone {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.sidebarTodoDone:hover,
+.sidebarTodoDone:focus-visible {
+  border-color: white;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }
 
 button.nearestEventPanel:hover,
@@ -316,6 +651,7 @@ button.nearestEventPanel:focus-visible {
   grid-template-rows: auto 1fr;
   gap: 14px;
   min-width: 0;
+  min-height: 0;
   padding: 20px;
 }
 
@@ -323,7 +659,9 @@ button.nearestEventPanel:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 18px;
+  min-width: 0;
 }
 
 .topbar h2 {
@@ -332,9 +670,10 @@ button.nearestEventPanel:focus-visible {
 
 .quickAdd {
   display: grid;
-  grid-template-columns: auto minmax(240px, 360px) auto;
+  grid-template-columns: auto minmax(180px, 360px) auto;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   border-radius: 8px;
   padding: 8px;
   background: white;
@@ -393,6 +732,7 @@ button.nearestEventPanel:focus-visible {
 }
 
 .commonHeader {
+  align-items: end;
   padding: 0 0 12px;
 }
 
@@ -400,28 +740,109 @@ button.nearestEventPanel:focus-visible {
   font-size: 22px;
 }
 
-.commonHeader > span {
+.commonHeaderStatus {
+  display: grid;
+  justify-items: end;
+  align-content: end;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(100%, 720px);
+}
+
+.commonHeaderStatus > span {
   color: #1f7a68;
   font-size: 13px;
   font-weight: 700;
 }
 
+.nextDatedEvent {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
+  min-height: 26px;
+  border: 0;
+  border-top: 1px solid #dfe6e3;
+  border-radius: 0;
+  padding: 7px 0 0;
+  background: transparent;
+  color: #202124;
+  text-align: left;
+  box-shadow: none;
+}
+
+.nextDatedEvent:not(.empty):hover {
+  color: #1f7a68;
+}
+
+.nextDatedEvent:focus-visible {
+  outline: 2px solid #2f6eb5;
+  outline-offset: 3px;
+}
+
+.nextDatedEvent span,
+.nextDatedEvent em {
+  color: #6f7a80;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.nextDatedEvent span {
+  position: relative;
+  padding-left: 13px;
+  white-space: nowrap;
+}
+
+.nextDatedEvent span::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1f7a68;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.nextDatedEvent em {
+  color: #1f7a68;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nextDatedEvent strong {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nextDatedEvent.empty {
+  pointer-events: none;
+}
+
 .commonDayGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 8px;
   min-height: 0;
-  overflow: auto;
-  padding: 1px 2px 10px;
+  overflow: hidden;
+  padding: 1px 2px 8px;
 }
 
 .commonDayCard {
   display: grid;
   grid-template-rows: auto 1fr;
-  min-height: 246px;
+  min-width: 0;
+  min-height: 0;
   border: 1px solid #dfe6e3;
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 10px 26px rgba(22, 59, 53, 0.06);
   outline: none;
@@ -445,14 +866,15 @@ button.nearestEventPanel:focus-visible {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   border-bottom: 1px solid #e7ecea;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .commonDayHeader div {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .commonDayHeader div:last-child {
@@ -481,34 +903,50 @@ button.nearestEventPanel:focus-visible {
 .commonEntryList {
   display: grid;
   align-content: start;
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
-  padding-top: 8px;
+  overflow: hidden;
+  padding-top: 6px;
+}
+
+.commonEntryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 6px;
 }
 
 .commonEntry {
   display: grid;
-  grid-template-columns: 20px 36px 18px 42px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(28px, 34px) minmax(0, 1fr);
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   width: 100%;
+  min-width: 0;
   min-height: 18px;
   border: 0;
   border-radius: 6px;
-  padding: 1px 3px;
+  padding: 0 2px;
   background: transparent;
   color: #202124;
   font-size: 11px;
   text-align: left;
 }
 
-.commonEntry:hover {
+.commonEntry:hover,
+.commonEntryRow:hover {
   background: rgba(31, 122, 104, 0.08);
 }
 
+.commonEntryRow .commonEntry:hover {
+  background: transparent;
+}
+
 .commonEntry .marker {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   font-size: 13px;
 }
 
@@ -523,11 +961,17 @@ button.nearestEventPanel:focus-visible {
 
 .commonEntry strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendarTodoDone {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
 }
 
 .commonMore {
@@ -653,6 +1097,14 @@ button.nearestEventPanel:focus-visible {
   margin-top: 5px;
 }
 
+.monthEntryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1px;
+  border-radius: 5px;
+}
+
 .monthEntryButton {
   display: grid;
   grid-template-columns: 16px 30px minmax(0, 1fr);
@@ -670,8 +1122,13 @@ button.nearestEventPanel:focus-visible {
   text-align: left;
 }
 
-.monthEntryButton:hover {
+.monthEntryButton:hover,
+.monthEntryRow:hover {
   background: rgba(31, 122, 104, 0.08);
+}
+
+.monthEntryRow .monthEntryButton:hover {
+  background: transparent;
 }
 
 .monthEntryButton .marker {
@@ -690,6 +1147,12 @@ button.nearestEventPanel:focus-visible {
 .monthEntryButton strong {
   font-size: 11px;
   font-weight: 600;
+}
+
+.monthTodoDone {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
 }
 
 .monthMore {
@@ -785,6 +1248,34 @@ button.nearestEventPanel:focus-visible {
 
 .level5 {
   color: #741b17;
+}
+
+.todoMarker {
+  font-size: 14px;
+}
+
+.todoLevel1 {
+  color: #f2b8b5;
+}
+
+.todoLevel2 {
+  color: #ec8f8a;
+}
+
+.todoLevel3 {
+  color: #df5d55;
+}
+
+.todoLevel4 {
+  color: #c92f28;
+}
+
+.todoLevel5 {
+  color: #9f1712;
+}
+
+.todoMarker.completed {
+  color: #9aa3a0;
 }
 
 .kind,
@@ -1118,6 +1609,46 @@ button.nearestEventPanel:focus-visible {
   color: white;
 }
 
+.oauthAccountList {
+  display: grid;
+  gap: 6px;
+}
+
+.oauthAccountRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.oauthAccount {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  border: 1px solid #d6e0dc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: white;
+  color: #202124;
+  text-align: left;
+}
+
+.oauthAccount.active {
+  border-color: #1f7a68;
+  box-shadow: inset 0 0 0 1px #1f7a68;
+}
+
+.oauthAccount strong,
+.oauthAccount span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oauthAccount span {
+  color: #6f7a80;
+  font-size: 12px;
+}
+
 .aiParserForm {
   display: grid;
   gap: 10px;
@@ -1335,6 +1866,17 @@ button.nearestEventPanel:focus-visible {
   color: white;
 }
 
+.drawerScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
 .eventDrawer {
   position: fixed;
   top: 0;
@@ -1368,6 +1910,18 @@ button.nearestEventPanel:focus-visible {
 
 .drawerHeader h3 {
   font-size: 22px;
+}
+
+.drawerTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawerTodoDone {
+  width: 24px;
+  height: 24px;
+  color: #87918d;
 }
 
 .iconButton {
@@ -1630,12 +2184,34 @@ button.nearestEventPanel:focus-visible {
 }
 
 @media (max-width: 1180px) {
+  .authGate {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .authGateHero {
+    min-height: 48vh;
+    padding: 92px 28px 42px;
+  }
+
+  .authGateHero::after {
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: 1px;
+    box-shadow: 0 14px 24px rgba(32, 33, 36, 0.06);
+  }
+
+  .authGatePanel {
+    min-height: auto;
+    padding: 34px 28px 46px;
+  }
+
   .dashboard {
     grid-template-columns: minmax(560px, 1fr) 320px;
   }
 
   .commonDayGrid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
   }
 
   .eventDrawer {

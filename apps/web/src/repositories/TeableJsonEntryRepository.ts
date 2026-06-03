@@ -1,4 +1,4 @@
-import type { Entry, EntryAttachment, EntryUnitId, EventKind } from "@desktopcal/shared";
+import type { Entry, EntryAttachment, EntryCategory, EntryUnitId, EventKind } from "@desktopcal/shared";
 import { entryUnitProfiles, getEntryUnitProfile } from "@desktopcal/shared";
 import { toDateKey } from "../domain/date";
 import {
@@ -66,6 +66,7 @@ type TeableAttachmentCell = {
 const FIELD = {
   localId: "本地ID",
   title: "标题",
+  category: "条目类型",
   date: "日期",
   time: "时间",
   unit: "单位",
@@ -85,6 +86,13 @@ const REQUIRED_FIELDS: RequiredField[] = [
     type: "singleLineText",
     dbFieldName: "desktopcal_title",
     description: "事件标题",
+  },
+  {
+    name: FIELD.category,
+    type: "singleSelect",
+    dbFieldName: "desktopcal_category",
+    description: "日历或代办",
+    fallbackType: "singleLineText",
   },
   {
     name: FIELD.date,
@@ -110,7 +118,7 @@ const REQUIRED_FIELDS: RequiredField[] = [
     name: FIELD.kind,
     type: "singleSelect",
     dbFieldName: "desktopcal_kind",
-    description: "事件或持续，决定空心/实心显示",
+    description: "事件或截止，决定空心/实心显示",
     fallbackType: "singleLineText",
   },
   {
@@ -174,8 +182,23 @@ const unitLabelToId = new Map<string, EntryUnitId>(
 
 const kindLabelById: Record<EventKind, string> = {
   event: "事件",
-  duration: "持续",
+  duration: "截止",
 };
+
+const categoryLabelById: Record<EntryCategory, string> = {
+  calendar: "日历",
+  todo: "代办",
+};
+
+const categoryIdByLabel = new Map<string, EntryCategory>([
+  ["日历", "calendar"],
+  ["calendar", "calendar"],
+  ["事件日历", "calendar"],
+  ["代办", "todo"],
+  ["todo", "todo"],
+  ["待办", "todo"],
+  ["任务", "todo"],
+]);
 
 const kindIdByLabel = new Map<string, EventKind>([
   ["事件", "event"],
@@ -330,10 +353,11 @@ export class TeableJsonEntryRepository implements EntryRepository {
     const unitProfile = getEntryUnitProfile(entry.unit);
     const payload: Record<string, unknown> = {
       [FIELD.title]: entry.title,
+      [FIELD.category]: categoryLabelById[entry.category ?? "calendar"],
       [FIELD.date]: toTeableDate(entry.date),
-      [FIELD.time]: entry.time ?? null,
+      [FIELD.time]: entry.category === "todo" ? null : entry.time ?? null,
       [FIELD.unit]: unitProfile.label,
-      [FIELD.kind]: kindLabelById[entry.kind],
+      [FIELD.kind]: entry.category === "todo" ? null : kindLabelById[entry.kind],
       [FIELD.importance]: entry.importance,
       [FIELD.completed]: entry.completed ?? false,
       [FIELD.note]: entry.note ?? null,
@@ -377,8 +401,9 @@ export class TeableJsonEntryRepository implements EntryRepository {
     if (!title) {
       return null;
     }
+    const category = categoryFromField(fields[FIELD.category]);
     const unit = unitFromField(fields[FIELD.unit]);
-    const kind = kindFromField(fields[FIELD.kind]);
+    const kind = category === "todo" ? "event" : kindFromField(fields[FIELD.kind]);
     const presentation = getEntryUnitProfile(unit);
     const now = new Date().toISOString();
     return {
@@ -387,7 +412,8 @@ export class TeableJsonEntryRepository implements EntryRepository {
       unit,
       title,
       date: dateFromField(fields[FIELD.date]) ?? fallbackDate,
-      time: textFromField(fields[FIELD.time]),
+      time: category === "todo" ? undefined : textFromField(fields[FIELD.time]),
+      category,
       shape: presentation.shape,
       kind,
       importance: importanceFromField(fields[FIELD.importance]),
@@ -564,6 +590,11 @@ function unitFromField(value: unknown): EntryUnitId {
 function kindFromField(value: unknown): EventKind {
   const text = textFromField(value);
   return (text && kindIdByLabel.get(text)) || "event";
+}
+
+function categoryFromField(value: unknown): EntryCategory {
+  const text = textFromField(value);
+  return (text && categoryIdByLabel.get(text)) || "calendar";
 }
 
 function importanceFromField(value: unknown): 1 | 2 | 3 | 4 | 5 {

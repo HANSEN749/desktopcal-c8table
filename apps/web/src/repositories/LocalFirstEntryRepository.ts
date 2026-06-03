@@ -121,6 +121,7 @@ function entryToDraft(entry: Entry): EntryDraft {
     title: entry.title,
     date: entry.date,
     time: entry.time,
+    category: entry.category,
     kind: entry.kind,
     importance: entry.importance,
     completed: entry.completed,

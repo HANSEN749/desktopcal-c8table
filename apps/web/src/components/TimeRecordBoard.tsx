@@ -199,7 +199,9 @@ function buildRecordGroups(
   filter: TimeFilter,
   selectedDate: string,
 ): RecordGroup[] {
-  const visible = entries.filter((entry) => matchesFilter(entry, today, filter, selectedDate));
+  const visible = entries.filter(
+    (entry) => entry.category !== "todo" && matchesFilter(entry, today, filter, selectedDate),
+  );
   const pendingByDate = new Map<string, Entry[]>();
   const overdue: Entry[] = [];
   const completed: Entry[] = [];
