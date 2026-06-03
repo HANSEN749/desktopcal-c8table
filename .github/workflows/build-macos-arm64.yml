@@ -36,11 +36,17 @@ jobs:
           node <<'JS'
           const fs = require('fs');
           const appPath = 'apps/web/src/App.tsx';
+          const oauthPath = 'apps/web/src/repositories/TeableOAuth.ts';
           let app = fs.readFileSync(appPath, 'utf8');
+          let oauth = fs.readFileSync(oauthPath, 'utf8');
 
           app = app.replace(
             /(<OAuthGate\n\s+oauthState=\{oauthState\}\n\s+statusText=\{saveError \?\? statusText\}\n)(\s+onLoginWithOAuth=\{loginWithOAuth\})/,
             '$1        onSaveOAuthClientId={saveOAuthClientId}\n$2',
+          );
+          app = app.replace(
+            'async function loginWithOAuth() {\n    setSaveError(undefined);',
+            'async function loginWithOAuth() {\n    setSaveError(undefined);\n    setStatusText("正在打开 c8table 登录...");',
           );
           app = app.replace(
             'interface OAuthGateProps {\n  oauthState: OAuthViewState;\n  statusText: string;\n  onLoginWithOAuth(): Promise<void>;\n}',
@@ -52,7 +58,7 @@ jobs:
           );
           app = app.replace(
             '        <button\n          className="authGateButton"',
-            '        {!clientIdReady ? (\n          <form className="authGateClientForm" onSubmit={submitClientId}>\n            <label htmlFor="authGateClientId">c8table OAuth Client ID</label>\n            <input\n              id="authGateClientId"\n              value={clientIdDraft}\n              onChange={(event) => setClientIdDraft(event.target.value)}\n              placeholder="先粘贴 OAuth Client ID"\n            />\n            <button type="submit" disabled={!clientIdDraft.trim()}>\n              保存登录配置\n            </button>\n          </form>\n        ) : null}\n        <button\n          className="authGateButton"',
+            '        {statusText ? <p className="authGateStatus">{statusText}</p> : null}\n        {!clientIdReady ? (\n          <form className="authGateClientForm" onSubmit={submitClientId}>\n            <label htmlFor="authGateClientId">c8table OAuth Client ID</label>\n            <input\n              id="authGateClientId"\n              value={clientIdDraft}\n              onChange={(event) => setClientIdDraft(event.target.value)}\n              placeholder="先粘贴 OAuth Client ID"\n            />\n            <button type="submit" disabled={!clientIdDraft.trim()}>\n              保存登录配置\n            </button>\n          </form>\n        ) : null}\n        <button\n          className="authGateButton"',
           );
           app = app.replace('disabled={!oauthState.config.clientId}', 'disabled={!clientIdReady}');
           app = app.replace('!oauthState.config.clientId ? (', '!clientIdReady ? (');
@@ -62,7 +68,13 @@ jobs:
             'function shouldRequireTeableOAuth(entryRepository?: EntryRepository): boolean {\n  if (entryRepository) {\n    return false;\n  }\n  return envValue("VITE_REQUIRE_TEABLE_OAUTH") === "true" || isTauriRuntime();\n}\n\nfunction isTauriRuntime(): boolean {\n  if (typeof window === "undefined") {\n    return false;\n  }\n  const tauriWindow = window as unknown as {\n    __TAURI__?: unknown;\n    __TAURI_INTERNALS__?: unknown;\n  };\n  return Boolean(tauriWindow.__TAURI__ || tauriWindow.__TAURI_INTERNALS__);\n}',
           );
 
+          oauth = oauth.replace(
+            '  location.assign(`${config.baseUrl.replace(/\\/$/, "")}/api/oauth/authorize?${params}`);',
+            '  const authorizationUrl = `${config.baseUrl.replace(/\\/$/, "")}/api/oauth/authorize?${params}`;\n  location.assign(authorizationUrl);\n  window.setTimeout(() => {\n    if (location.href !== authorizationUrl) {\n      window.open(authorizationUrl, "_self");\n    }\n  }, 100);',
+          );
+
           fs.writeFileSync(appPath, app);
+          fs.writeFileSync(oauthPath, oauth);
           JS
 
       - name: Build shared and web
